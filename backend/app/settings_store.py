@@ -65,6 +65,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "google_read_calendars": [],
     "google_study_calendar_id": None,
     "google_auto_push": True,
+    # Kalender per Link (iCal/ICS), z. B. FamilyWall
+    "ics_calendars": [],
     # Garmin
     "garmin_auto_sync": True,
     "garmin_sync_days": 14,

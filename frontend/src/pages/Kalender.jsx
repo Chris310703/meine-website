@@ -61,12 +61,18 @@ export default function Kalender() {
 
   async function googleSync() {
     try {
-      await api.post("/google/sync");
-      toast("Google-Synchronisation gestartet …");
+      await Promise.allSettled([api.post("/google/sync"), api.post("/ics/refresh")]);
+      toast("Kalender werden aktualisiert …");
       setTimeout(reload, 4000);
     } catch (e) {
       toast(e.message, "error");
     }
+  }
+
+  async function linkSync() {
+    await api.post("/ics/refresh");
+    toast("Verknüpfte Kalender werden aktualisiert …");
+    setTimeout(reload, 3000);
   }
 
   async function setBlockStatus(it, status) {
@@ -105,12 +111,17 @@ export default function Kalender() {
             <Segmented value={view} onChange={setView} options={[{ value: "woche", label: "Woche" }, { value: "monat", label: "Monat" }]} />
             {data?.google_connected ? (
               <button className="btn" onClick={googleSync}>
-                ⟳ Google
+                ⟳ Aktualisieren
               </button>
             ) : (
-              <Link to="/einstellungen" className="btn">
-                Google verbinden
-              </Link>
+              <>
+                <button className="btn" onClick={linkSync} title="Kalender per Link (z. B. FamilyWall) aktualisieren">
+                  ⟳ Aktualisieren
+                </button>
+                <Link to="/einstellungen" className="btn">
+                  Google verbinden
+                </Link>
+              </>
             )}
           </>
         }

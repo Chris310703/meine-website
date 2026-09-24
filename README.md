@@ -194,6 +194,17 @@ Die App legt automatisch den Kalender **„Life OS – Lernplan“** an und trä
 
 ---
 
+## Kalender per Link (z. B. FamilyWall)
+
+Kalender, die einen Abo-Link (iCal/ICS, beginnt mit `webcal://` oder `https://…`) anbieten – z. B. **FamilyWall**, Uni-Kalender oder Vereinskalender – kannst du direkt in Life OS verknüpfen, ohne Umweg über Google:
+
+1. Link kopieren (bei einem in Google abonnierten Kalender: Google Kalender → beim Kalender **⋮ → „Einstellungen und Freigabe“**).
+2. In Life OS: *Einstellungen → Verbindungen → „Kalender per Link“* → Name und Link eintragen → **„Verknüpfen“**.
+
+Life OS holt die Termine beim Start und danach alle 15 Minuten (sofort: **„⟳ Aktualisieren“** im Kalender). Sie erscheinen im Kalender und auf „Heute“, und der Lernplan plant keine Lernblöcke darauf. Ist derselbe Kalender auch über Google verbunden, nimm dort den Haken raus, sonst erscheinen Termine doppelt.
+
+---
+
 ## Claude API einrichten
 
 Claude wird für die **Themen-Extraktion im Lernplan**, den **KI-Chat** und die **KI-Zusammenfassung im Rückblick** genutzt. Alle anderen Funktionen laufen auch ohne Schlüssel.
@@ -250,6 +261,18 @@ Für Opus 5 ist der **serverseitige Fallback** aktiviert: Lehnt das Modell eine 
 | Aktienkurse fehlen | Symbol prüfen (z. B. `SAP.DE`). Ohne Internet werden die zuletzt gespeicherten Kurse angezeigt. |
 | Ein News-Feed zeigt „Fehler“ | Adresse unter *Einstellungen → News-Feeds* prüfen oder ersetzen. |
 | Alles zurücksetzen | App beenden und `backend/data/lifeos.db` löschen (**löscht alle Daten!**). Beim nächsten Start werden wieder Beispieldaten angelegt. |
+
+---
+
+## App aktualisieren
+
+Neue Versionen holst du im Projektordner mit
+
+```bash
+bash update.sh
+```
+
+Deine Daten (`backend/data/`) und die `.env` bleiben dabei erhalten. Danach die App neu starten.
 
 ---
 
