@@ -26,8 +26,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "weekly_sessions_goal": 4,
     "max_hr": 195,
     "z2_reference_hr": 140,
-    # Obergrenzen der HF-Zonen 1–5 in % der maximalen Herzfrequenz
-    "hr_zone_limits": [60, 70, 80, 90, 100],
+    # Obergrenzen der HF-Zonen 1–5 in % der maximalen Herzfrequenz (Zone 1 beginnt bei 50 %).
+    # Am besten so einstellen wie in Garmin Connect → Herzfrequenzbereiche.
+    "hr_zone_limits": [65, 75, 82, 89, 100],
     # Finanzen
     "monthly_budget": 950,
     "currency": "EUR",

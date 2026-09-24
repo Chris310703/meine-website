@@ -321,8 +321,8 @@ def _seed_fitness(db: Session, today: date, rng: random.Random) -> None:
         db.add(
             SleepRecord(
                 date=day,
-                sleep_start=sleep_start.replace(second=0),
-                sleep_end=sleep_end.replace(second=0),
+                sleep_start=sleep_start.replace(second=0, microsecond=0),
+                sleep_end=sleep_end.replace(second=0, microsecond=0),
                 duration_s=round(total_s),
                 deep_s=round(deep),
                 light_s=round(light),

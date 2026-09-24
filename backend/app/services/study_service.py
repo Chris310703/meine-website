@@ -143,15 +143,28 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
     today = now.date()
     missed = mark_missed(db, now)
 
+    # Zukünftige Blöcke verwerfen; ihre Google-Termine werden wiederverwendet statt gelöscht,
+    # damit der Kalender beim Neuplanen nicht unnötig viele Termine löscht und neu anlegt.
     future = db.query(StudyBlock).filter(StudyBlock.status == "geplant", StudyBlock.start >= now).all()
-    for b in future:
+    unchanged: dict[tuple, tuple[str, str | None]] = {}
+    recycled: list[str] = []
+    for b in sorted(future, key=lambda x: x.start):
         if b.google_event_id:
-            db.add(GoogleDeletion(google_event_id=b.google_event_id))
+            key = (b.subject_id, b.topic_id, b.kind, b.review_number, b.start, b.end, b.title)
+            if key not in unchanged:
+                unchanged[key] = (b.google_event_id, b.google_hash)
+            else:
+                recycled.append(b.google_event_id)
         db.delete(b)
     db.flush()
 
+    def release_event_ids() -> None:
+        for event_id in recycled + [eid for eid, _ in unchanged.values()]:
+            db.add(GoogleDeletion(google_event_id=event_id))
+
     subjects, notes = build_subjects(db, today)
     if not subjects:
+        release_event_ids()
         db.commit()
         return {"created": 0, "missed": missed, "warnings": notes, "unplanned": {}}
     horizon_end = max(s.exam_date for s in subjects)
@@ -159,20 +172,34 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
     result = plan(subjects, busy, planner_config(db), now, used)
 
     is_demo = bool(settings_store.get(db, "demo_active", False))
+    new_blocks = []
     for b in result.blocks:
-        db.add(
-            StudyBlock(
-                subject_id=b.subject_id,
-                topic_id=b.topic_id,
-                start=b.start,
-                end=b.end,
-                kind=b.kind,
-                review_number=b.review_number,
-                status="geplant",
-                title=b.title,
-                is_demo=is_demo and db.get(Subject, b.subject_id).is_demo,
-            )
+        block = StudyBlock(
+            subject_id=b.subject_id,
+            topic_id=b.topic_id,
+            start=b.start,
+            end=b.end,
+            kind=b.kind,
+            review_number=b.review_number,
+            status="geplant",
+            title=b.title,
+            is_demo=is_demo and db.get(Subject, b.subject_id).is_demo,
         )
+        key = (b.subject_id, b.topic_id, b.kind, b.review_number, b.start, b.end, b.title)
+        if key in unchanged:
+            block.google_event_id, block.google_hash = unchanged.pop(key)
+        new_blocks.append(block)
+        db.add(block)
+    # Übrige Termin-IDs an geänderte Blöcke vergeben (Termin wird dann aktualisiert)
+    recycled.extend(eid for eid, _ in unchanged.values())
+    unchanged.clear()
+    for block in new_blocks:
+        if not recycled:
+            break
+        if block.google_event_id is None:
+            block.google_event_id = recycled.pop(0)
+            block.google_hash = None
+    release_event_ids()
     db.commit()
     return {
         "created": len(result.blocks),
