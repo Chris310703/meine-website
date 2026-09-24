@@ -5,9 +5,12 @@ Ablauf:
 2. Stoff je Thema in Lerneinheiten (max. `block_minutes`) zerlegen.
 3. Tag für Tag die freien Fenster füllen:
    a) fällige Wiederholungen (verteilte Wiederholung, z. B. nach 1/3/7 Tagen),
-   b) Puffertage vor der Prüfung: nur Wiederholung/Altklausuren des Fachs,
-   c) neuer Stoff – das Fach mit der höchsten Dringlichkeit
-      (Reststoff ÷ verbleibende Kapazität bis zur Pufferphase) gewinnt.
+      höchstens die Hälfte der täglichen Lernzeit,
+   b) Puffertage vor der Prüfung: ein fester Block Altklausur/Wiederholung pro Tag,
+   c) neuer Stoff, fair verteilt: Jedes Fach soll anteilig so weit sein, wie Lernzeit
+      bis zu seiner Pufferphase verstrichen ist – das Fach mit dem größten Rückstand
+      kommt dran (Stoff, der schon in die Pufferphase rutscht, zuerst),
+   d) übrige Zeit an Puffertagen: weitere Prüfungsvorbereitung.
 4. Warnungen, wenn der Stoff nicht mehr bis zur Prüfung passt.
 """
 
@@ -222,6 +225,8 @@ def plan(
         queues[s.id] = q
 
     overflow_used: set[int] = set()
+    total_new = {s.id: sum(u for _, u in queues[s.id]) for s in subjects}
+    planned_new: Counter[int] = Counter()
 
     def schedule_reviews(s: PlanSubject, t: PlanTopic, learned: date) -> None:
         added = False
@@ -238,10 +243,7 @@ def plan(
         if not free[d]:
             continue
         used = used_fixed.get(d, 0)
-        per_subject: Counter[int] = Counter()
-        buffer_blocks: Counter[int] = Counter()
-        reviewed_today: set[int] = set()
-        last_subject: int | None = None
+        day = _DayState()
 
         for interval_start, interval_end in free[d]:
             cursor = interval_start
@@ -250,15 +252,20 @@ def plan(
                 if limit < min(cfg.min_block_minutes, cfg.review_minutes):
                     break
                 placed = _choose_and_place(
-                    d, cursor, limit, subjects, queues, topic_left, reviews, per_subject,
-                    buffer_blocks, reviewed_today, last_subject, cfg, buffer_start,
-                    capacity_until, schedule_reviews, overflow_used, result,
+                    d, cursor, limit, subjects, queues, topic_left, reviews, day, cfg,
+                    buffer_start, capacity_until, schedule_reviews, overflow_used, result,
+                    today, total_new, planned_new,
                 )
                 if placed is None:
                     break
                 used += placed.minutes
-                per_subject[placed.subject_id] += 1
-                last_subject = placed.subject_id
+                day.placed_minutes += placed.minutes
+                if placed.kind == "lernen":
+                    planned_new[placed.subject_id] += placed.minutes
+                day.per_subject[placed.subject_id] += 1
+                day.last_subject = placed.subject_id
+                if placed.kind == "wiederholung":
+                    day.review_minutes += placed.minutes
                 cursor = placed.end + timedelta(minutes=cfg.break_minutes)
                 if cursor >= interval_end:
                     break
@@ -281,16 +288,45 @@ def plan(
     return result
 
 
+@dataclass
+class _DayState:
+    per_subject: Counter = field(default_factory=Counter)
+    buffer_blocks: Counter = field(default_factory=Counter)
+    reviewed_today: set = field(default_factory=set)
+    review_minutes: int = 0
+    placed_minutes: int = 0
+    last_subject: int | None = None
+
+
 def _choose_and_place(
-    d, cursor, limit, subjects, queues, topic_left, reviews, per_subject, buffer_blocks,
-    reviewed_today, last_subject, cfg, buffer_start, capacity_until, schedule_reviews,
-    overflow_used, result,
+    d, cursor, limit, subjects, queues, topic_left, reviews, day, cfg,
+    buffer_start, capacity_until, schedule_reviews, overflow_used, result,
+    today, total_new, planned_new,
 ) -> PlannedBlock | None:
     def allowed(sid: int) -> bool:
-        return per_subject[sid] < cfg.max_blocks_per_subject_per_day
+        return day.per_subject[sid] < cfg.max_blocks_per_subject_per_day
 
-    # a) fällige Wiederholungen
-    if limit >= cfg.review_minutes:
+    def buffer_block(first_only: bool) -> PlannedBlock | None:
+        for s in sorted(subjects, key=lambda x: x.exam_date):
+            if not (buffer_start(s) <= d < s.exam_date and not queues[s.id] and allowed(s.id)):
+                continue
+            count = day.buffer_blocks[s.id]
+            if count >= (1 if first_only else cfg.max_buffer_blocks_per_day):
+                continue
+            minutes = min(cfg.block_minutes, limit)
+            if minutes < cfg.min_block_minutes:
+                continue
+            day.buffer_blocks[s.id] += 1
+            block = PlannedBlock(
+                s.id, None, cursor, cursor + timedelta(minutes=minutes), "puffer", 0,
+                f"Prüfungsvorbereitung {s.short}: Altklausur & Wiederholung",
+            )
+            result.blocks.append(block)
+            return block
+        return None
+
+    # a) fällige Wiederholungen (höchstens die Hälfte der täglichen Lernzeit)
+    if limit >= cfg.review_minutes and day.review_minutes + cfg.review_minutes <= cfg.max_minutes_per_day // 2:
         pending_numbers: dict[int, int] = {}
         for r in reviews:
             pending_numbers[r.topic.id] = min(pending_numbers.get(r.topic.id, r.number), r.number)
@@ -299,14 +335,14 @@ def _choose_and_place(
             if r.due <= d
             and r.subject.exam_date > d
             and allowed(r.subject.id)
-            and r.topic.id not in reviewed_today
+            and r.topic.id not in day.reviewed_today
             and r.number == pending_numbers[r.topic.id]
         ]
         if due:
             due.sort(key=lambda r: (r.subject.exam_date, r.due, r.number))
             r = due[0]
             reviews.remove(r)
-            reviewed_today.add(r.topic.id)
+            day.reviewed_today.add(r.topic.id)
             # Folgende Wiederholungen desselben Themas frühestens nach ihrem Abstand
             for other in reviews:
                 if other.topic.id == r.topic.id and other.number > r.number:
@@ -319,64 +355,56 @@ def _choose_and_place(
             result.blocks.append(block)
             return block
 
-    # b) Pufferphase: Stoff ist durch → Altklausuren & Gesamtwiederholung
-    for s in sorted(subjects, key=lambda x: x.exam_date):
-        if buffer_start(s) <= d < s.exam_date and not queues[s.id] and allowed(s.id):
-            if buffer_blocks[s.id] >= cfg.max_buffer_blocks_per_day:
-                continue
-            minutes = min(cfg.block_minutes, limit)
-            if minutes < cfg.min_block_minutes:
-                continue
-            buffer_blocks[s.id] += 1
-            block = PlannedBlock(
-                s.id, None, cursor, cursor + timedelta(minutes=minutes), "puffer", 0,
-                f"Prüfungsvorbereitung {s.short}: Altklausur & Wiederholung",
-            )
-            result.blocks.append(block)
-            return block
+    # b) Pufferphase: ein fester Block pro Tag für das anstehende Fach
+    block = buffer_block(first_only=True)
+    if block:
+        return block
 
-    # c) neuer Stoff nach Dringlichkeit
+    # c) neuer Stoff – faire, anteilige Verteilung:
+    #    Jedes Fach soll bis heute den Anteil seines Stoffs geschafft haben, der dem Anteil
+    #    der bereits verstrichenen Lernkapazität bis zu seiner Pufferphase entspricht.
+    #    Das Fach mit dem größten Rückstand kommt dran; Stoff in der Pufferphase ist am dringendsten.
     candidates = [
         s for s in subjects
-        if queues[s.id] and d < buffer_start(s) and (s.study_start is None or d >= s.study_start)
+        if queues[s.id] and d < s.exam_date and (s.study_start is None or d >= s.study_start)
     ]
-    overflow = False
-    if not candidates:
-        candidates = [s for s in subjects if queues[s.id] and d < s.exam_date and (s.study_start is None or d >= s.study_start)]
-        overflow = True
-    if not candidates:
-        return None
     permitted = [s for s in candidates if allowed(s.id)]
     if permitted:
         candidates = permitted
+    if candidates:
+        def priority(s: PlanSubject) -> tuple[int, float, float, int]:
+            left = sum(u for _, u in queues[s.id])
+            in_buffer = d >= buffer_start(s)
+            window_start = max(today, s.study_start) if s.study_start else today
+            window = max(1, capacity_until(window_start, buffer_start(s)))
+            elapsed = min(window, capacity_until(window_start, d) + day.placed_minutes)
+            deficit = total_new[s.id] * elapsed / window - planned_new[s.id]
+            if s.id == day.last_subject and len(candidates) > 1:
+                deficit -= cfg.block_minutes / 2  # Abwechslung zwischen Fächern
+            cap = capacity_until(d, s.exam_date if in_buffer else buffer_start(s))
+            urgency = left / cap if cap > 0 else float("inf")
+            return (1 if in_buffer else 0, deficit, urgency, -s.exam_date.toordinal())
 
-    def urgency(s: PlanSubject) -> tuple[float, int]:
-        left = sum(u for _, u in queues[s.id])
-        until = buffer_start(s) if not overflow else s.exam_date
-        cap = capacity_until(d, until)
-        score = left / cap if cap > 0 else float("inf")
-        if s.id == last_subject and len(candidates) > 1:
-            score *= 0.75
-        return (score, -s.exam_date.toordinal())
+        s = max(candidates, key=priority)
+        topic, unit = queues[s.id][0]
+        if unit <= limit or limit >= cfg.min_block_minutes:
+            if unit > limit:
+                minutes = int(limit // 5 * 5)
+                queues[s.id][0] = (topic, unit - minutes)
+            else:
+                minutes = unit
+                queues[s.id].popleft()
+            topic_left[topic.id] -= minutes
+            if d >= buffer_start(s):
+                overflow_used.add(s.id)
+            block = PlannedBlock(
+                s.id, topic.id, cursor, cursor + timedelta(minutes=minutes), "lernen", 0,
+                f"{s.short}: {topic.title}",
+            )
+            result.blocks.append(block)
+            if topic_left[topic.id] <= 0:
+                schedule_reviews(s, topic, d)
+            return block
 
-    s = max(candidates, key=urgency)
-    topic, unit = queues[s.id][0]
-    if unit > limit:
-        if limit < cfg.min_block_minutes:
-            return None
-        minutes = int(limit // 5 * 5)
-        queues[s.id][0] = (topic, unit - minutes)
-    else:
-        minutes = unit
-        queues[s.id].popleft()
-    topic_left[topic.id] -= minutes
-    if overflow:
-        overflow_used.add(s.id)
-    block = PlannedBlock(
-        s.id, topic.id, cursor, cursor + timedelta(minutes=minutes), "lernen", 0,
-        f"{s.short}: {topic.title}",
-    )
-    result.blocks.append(block)
-    if topic_left[topic.id] <= 0:
-        schedule_reviews(s, topic, d)
-    return block
+    # d) übrige Zeit: weitere Puffer-Blöcke
+    return buffer_block(first_only=False)

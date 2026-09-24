@@ -1,4 +1,5 @@
 from . import (
+    ai,
     calendar,
     core,
     finance,
@@ -32,4 +33,5 @@ ROUTERS = [
     finance.router,
     stocks.router,
     news.router,
+    ai.router,
 ]

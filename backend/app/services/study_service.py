@@ -141,6 +141,7 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
     """Verpasste Blöcke markieren, zukünftige Blöcke verwerfen und neu verteilen."""
     now = (now or datetime.now()).replace(second=0, microsecond=0)
     today = now.date()
+    db.expire_all()  # frische Daten laden (Themen, die gerade hinzugefügt wurden)
     missed = mark_missed(db, now)
 
     # Zukünftige Blöcke verwerfen; ihre Google-Termine werden wiederverwendet statt gelöscht,
@@ -211,6 +212,7 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
 
 def subject_overview(db: Session, today: date | None = None) -> list[dict[str, Any]]:
     today = today or date.today()
+    db.expire_all()
     progress = topic_progress(db)
     out = []
     now = datetime.now()

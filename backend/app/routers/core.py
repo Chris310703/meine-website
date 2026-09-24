@@ -193,8 +193,49 @@ def get_settings(db: Session = Depends(get_db)) -> dict[str, Any]:
 @router.put("/settings")
 def put_settings(payload: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
     allowed = {k: v for k, v in payload.items() if k in settings_store.DEFAULT_SETTINGS}
+    if "study" in allowed:
+        allowed["study"] = validate_study(allowed["study"])
     values = settings_store.update_many(db, allowed)
+    if {"study", "semester"} & set(allowed):
+        from ..services import google_calendar, study_service
+
+        study_service.replan(db)
+        google_calendar.push_if_enabled(db)
     return {k: v for k, v in values.items() if k not in HIDDEN_SETTINGS}
+
+
+def validate_study(study: dict[str, Any]) -> dict[str, Any]:
+    """Prüft die Lernplan-Regeln, damit der Planer nicht mit unsinnigen Werten läuft."""
+    from fastapi import HTTPException
+
+    from ..services.agenda import parse_hhmm
+
+    merged = dict(settings_store.DEFAULT_SETTINGS["study"])
+    merged.update(study or {})
+    try:
+        if parse_hhmm(merged["day_start"]) >= parse_hhmm(merged["day_end"]):
+            raise ValueError("Das Lernfenster muss vor seinem Ende beginnen.")
+        for key, lo, hi in (
+            ("max_minutes_per_day", 30, 900),
+            ("block_minutes", 20, 240),
+            ("min_block_minutes", 15, 240),
+            ("break_minutes", 0, 120),
+            ("buffer_days", 0, 14),
+            ("review_minutes", 10, 180),
+            ("event_padding_minutes", 0, 120),
+            ("workout_padding_minutes", 0, 180),
+            ("max_blocks_per_subject_per_day", 1, 10),
+        ):
+            merged[key] = int(merged[key])
+            if not lo <= merged[key] <= hi:
+                raise ValueError(f"„{key}“ muss zwischen {lo} und {hi} liegen.")
+        merged["review_intervals"] = sorted({int(x) for x in merged["review_intervals"] if int(x) > 0})
+        merged["weekdays"] = sorted({int(x) for x in merged["weekdays"] if 0 <= int(x) <= 6})
+        if not merged["weekdays"]:
+            raise ValueError("Mindestens ein Lerntag muss ausgewählt sein.")
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Lernplan-Regeln ungültig: {exc}") from exc
+    return merged
 
 
 @router.get("/status")

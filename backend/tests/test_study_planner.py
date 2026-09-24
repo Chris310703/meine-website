@@ -270,3 +270,13 @@ def test_done_blocks_count_as_progress(db):
     overview = study_service.subject_overview(db, today)[0]
     assert overview["progress"] == 67
     assert overview["days_left"] == 20
+
+
+def test_small_subject_is_not_postponed_until_the_end():
+    big = subject(1, 30, [600, 600, 600, 600], name="Groß")
+    small = subject(2, 29, [180], name="Klein")
+    result = plan([big, small], [], cfg(max_minutes_per_day=240), NOW)
+    first_small = min(b.start.date() for b in result.blocks if b.subject_id == 2 and b.kind == "lernen")
+    # Das kleine Fach beginnt im ersten Drittel seines Zeitraums, nicht erst kurz vor der Prüfung
+    assert (first_small - MONDAY).days <= 9
+    assert not result.unplanned_minutes

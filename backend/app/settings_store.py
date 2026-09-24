@@ -53,7 +53,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "break_minutes": 15,
         "buffer_days": 2,
         "review_intervals": [1, 3, 7],
-        "review_minutes": 45,
+        "review_minutes": 30,
         "event_padding_minutes": 15,
         "workout_padding_minutes": 30,
         "weekdays": [0, 1, 2, 3, 4, 5, 6],

@@ -389,17 +389,17 @@ SUBJECTS = [
         "name": "BGB Allgemeiner Teil",
         "short": "BGB AT",
         "color": "#38bdf8",
-        "exam_in": 21,
+        "exam_in": 24,
         "exam_time": "10:00",
         "location": "Audimax",
         "topics": [
-            ("Rechtsgeschäftslehre & Willenserklärung", 6, 2),
-            ("Vertragsschluss: Angebot und Annahme", 5, 2),
-            ("Geschäftsfähigkeit", 4, 1),
-            ("Anfechtung (§§ 119 ff. BGB)", 6, 3),
-            ("Stellvertretung", 7, 3),
-            ("Form, Gesetzes- und Sittenwidrigkeit", 4, 2),
-            ("AGB-Recht", 4, 2),
+            ("Rechtsgeschäftslehre & Willenserklärung", 4, 2),
+            ("Vertragsschluss: Angebot und Annahme", 3, 2),
+            ("Geschäftsfähigkeit", 3, 1),
+            ("Anfechtung (§§ 119 ff. BGB)", 4, 3),
+            ("Stellvertretung", 5, 3),
+            ("Form, Gesetzes- und Sittenwidrigkeit", 3, 2),
+            ("AGB-Recht", 3, 2),
             ("Verjährung", 2, 1),
         ],
     },
@@ -407,49 +407,49 @@ SUBJECTS = [
         "name": "Buchführung & Bilanzierung",
         "short": "BuB",
         "color": "#a3e635",
-        "exam_in": 28,
+        "exam_in": 32,
         "exam_time": "14:00",
         "location": "Hörsaal H3",
         "topics": [
-            ("Grundlagen, Inventur & Inventar", 3, 1),
-            ("Buchungssätze & Kontenrahmen", 5, 2),
-            ("Umsatzsteuer", 4, 2),
-            ("Abschreibungen", 4, 2),
-            ("Rückstellungen & Rechnungsabgrenzung", 5, 3),
-            ("Jahresabschluss", 5, 3),
+            ("Grundlagen, Inventur & Inventar", 2, 1),
+            ("Buchungssätze & Kontenrahmen", 4, 2),
+            ("Umsatzsteuer", 3, 2),
+            ("Abschreibungen", 3, 2),
+            ("Rückstellungen & Rechnungsabgrenzung", 4, 3),
+            ("Jahresabschluss", 4, 3),
         ],
     },
     {
         "name": "Mikroökonomik",
         "short": "Mikro",
         "color": "#facc15",
-        "exam_in": 35,
+        "exam_in": 40,
         "exam_time": "09:00",
         "location": "Audimax",
         "topics": [
-            ("Haushaltstheorie", 5, 2),
-            ("Nachfrage & Elastizitäten", 4, 2),
-            ("Produktionstheorie", 5, 2),
-            ("Kostenfunktionen", 4, 2),
-            ("Monopol", 5, 3),
-            ("Oligopol & Spieltheorie", 6, 3),
-            ("Marktversagen & externe Effekte", 4, 2),
+            ("Haushaltstheorie", 4, 2),
+            ("Nachfrage & Elastizitäten", 3, 2),
+            ("Produktionstheorie", 4, 2),
+            ("Kostenfunktionen", 3, 2),
+            ("Monopol", 4, 3),
+            ("Oligopol & Spieltheorie", 4, 3),
+            ("Marktversagen & externe Effekte", 3, 2),
         ],
     },
     {
         "name": "Staatsorganisationsrecht",
         "short": "StaatsOrga",
         "color": "#c084fc",
-        "exam_in": 49,
+        "exam_in": 55,
         "exam_time": "10:00",
         "location": "Hörsaal H2",
         "topics": [
-            ("Staatsstrukturprinzipien (Art. 20 GG)", 5, 2),
-            ("Demokratieprinzip & Wahlrechtsgrundsätze", 4, 2),
-            ("Bundestag & Gesetzgebungsverfahren", 6, 3),
-            ("Bundesrat & Föderalismus", 4, 2),
-            ("Bundesverfassungsgericht & Verfahrensarten", 5, 3),
-            ("Klausurtechnik Organstreit", 4, 2),
+            ("Staatsstrukturprinzipien (Art. 20 GG)", 4, 2),
+            ("Demokratieprinzip & Wahlrechtsgrundsätze", 3, 2),
+            ("Bundestag & Gesetzgebungsverfahren", 4, 3),
+            ("Bundesrat & Föderalismus", 3, 2),
+            ("Bundesverfassungsgericht & Verfahrensarten", 4, 3),
+            ("Klausurtechnik Organstreit", 3, 2),
         ],
     },
     {
@@ -840,15 +840,14 @@ DEMO_NEWS = [
 
 
 def _seed_news(db: Session, today: date) -> None:
-    feeds: dict[str, NewsFeed] = {}
     existing = {f.url for f in db.query(NewsFeed).all()}
     for name, url, cat in DEFAULT_FEEDS:
-        if url in existing:
-            continue
-        feed = NewsFeed(name=name, url=url, category=cat, is_demo=False)
-        db.add(feed)
-        db.flush()
-        feeds.setdefault(cat, feed)
+        if url not in existing:
+            db.add(NewsFeed(name=name, url=url, category=cat, is_demo=False))
+    db.flush()
+    feeds: dict[str, NewsFeed] = {}
+    for feed in db.query(NewsFeed).order_by(NewsFeed.id).all():
+        feeds.setdefault(feed.category, feed)
     for idx, (cat, title, summary) in enumerate(DEMO_NEWS):
         feed = feeds.get(cat)
         if feed is None:

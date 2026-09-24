@@ -83,10 +83,9 @@ def google_calendars(db: Session = Depends(get_db)) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Google-Kalender nicht erreichbar: {exc}") from exc
     study_id = settings_store.get(db, "google_study_calendar_id")
-    return {
-        "calendars": [c for c in cals if c["id"] != study_id],
-        "selected": settings_store.get(db, "google_read_calendars") or ["primary"],
-    }
+    primary = next((c["id"] for c in cals if c["primary"]), "primary")
+    selected = [primary if x == "primary" else x for x in (settings_store.get(db, "google_read_calendars") or ["primary"])]
+    return {"calendars": [c for c in cals if c["id"] != study_id], "selected": selected}
 
 
 class CalendarSelection(BaseModel):
