@@ -98,6 +98,7 @@ def seed_demo_data(db: Session, today: date | None = None) -> None:
     today = today or date.today()
     rng = random.Random(42)
 
+    settings_store.set_value(db, "demo_active", True, commit=False)
     _seed_settings(db, today)
     _seed_fitness(db, today, rng)
     subjects = _seed_study(db, today, rng)
@@ -111,16 +112,35 @@ def seed_demo_data(db: Session, today: date | None = None) -> None:
     settings_store.set_value(db, "demo_active", True, commit=False)
     db.commit()
 
-    # Lernplan aus den Beispielfächern erzeugen
+    # Lernplan aus den Beispielfächern erzeugen – mit einer realistischen Vorgeschichte
     try:
-        from .services import study_service
-
-        now = datetime.now() if today == date.today() else datetime.combine(today, time(7, 0))
-        study_service.replan(db, now=now)
+        _seed_study_history(db, today, rng)
     except Exception:  # pragma: no cover – Beispieldaten dürfen den Start nie verhindern
         import logging
 
         logging.getLogger("lifeos.seed").exception("Beispiel-Lernplan konnte nicht erzeugt werden")
+
+
+def _seed_study_history(db: Session, today: date, rng: random.Random) -> None:
+    """Plant so, als hätte Chris vor 8 Tagen begonnen, und markiert die vergangenen Blöcke
+    überwiegend als erledigt (einige verpasst). Danach wird ab jetzt neu geplant."""
+    from .services import study_service
+
+    now = datetime.now() if today == date.today() else datetime.combine(today, time(7, 0))
+    study_service.replan(db, now=datetime.combine(today - timedelta(days=8), time(7, 0)))
+    past = (
+        db.query(StudyBlock)
+        .filter(StudyBlock.status == "geplant", StudyBlock.end < now)
+        .order_by(StudyBlock.start)
+        .all()
+    )
+    for block in past:
+        block.status = "verpasst" if rng.random() < 0.2 else "erledigt"
+    db.commit()
+    for topic in db.query(Topic).all():
+        study_service.update_topic_status(db, topic)
+    db.commit()
+    study_service.replan(db, now=now)
 
 
 # ---------------------------------------------------------------- Einstellungen
@@ -382,7 +402,6 @@ SUBJECTS = [
             ("AGB-Recht", 4, 2),
             ("Verjährung", 2, 1),
         ],
-        "done": 2,
     },
     {
         "name": "Buchführung & Bilanzierung",
@@ -399,7 +418,6 @@ SUBJECTS = [
             ("Rückstellungen & Rechnungsabgrenzung", 5, 3),
             ("Jahresabschluss", 5, 3),
         ],
-        "done": 1,
     },
     {
         "name": "Mikroökonomik",
@@ -417,7 +435,6 @@ SUBJECTS = [
             ("Oligopol & Spieltheorie", 6, 3),
             ("Marktversagen & externe Effekte", 4, 2),
         ],
-        "done": 0,
     },
     {
         "name": "Staatsorganisationsrecht",
@@ -434,7 +451,6 @@ SUBJECTS = [
             ("Bundesverfassungsgericht & Verfahrensarten", 5, 3),
             ("Klausurtechnik Organstreit", 4, 2),
         ],
-        "done": 0,
     },
     {
         "name": "Steuerrecht Grundlagen",
@@ -447,7 +463,6 @@ SUBJECTS = [
             ("Einkommensteuer: Einkunftsarten", 5, 2),
             ("Werbungskosten & Sonderausgaben", 4, 2),
         ],
-        "done": 0,
     },
 ]
 
@@ -467,14 +482,13 @@ def _seed_study(db: Session, today: date, rng: random.Random) -> dict[str, Subje
         db.add(s)
         db.flush()
         for idx, (title, hours, diff) in enumerate(spec["topics"]):
-            status = "fertig" if idx < spec["done"] else "offen"
             db.add(
                 Topic(
                     subject_id=s.id,
                     title=title,
                     effort_hours=hours,
                     difficulty=diff,
-                    status=status,
+                    status="offen",
                     order_index=idx,
                     source="manuell",
                     is_demo=True,
@@ -483,45 +497,8 @@ def _seed_study(db: Session, today: date, rng: random.Random) -> dict[str, Subje
         subjects[spec["short"]] = s
     db.flush()
 
-    # Vergangene Lernblöcke: erledigt bzw. verpasst
     bgb = subjects["BGB AT"]
     bub = subjects["BuB"]
-    bgb_topics = sorted(bgb.topics, key=lambda t: t.order_index)
-    bub_topics = sorted(bub.topics, key=lambda t: t.order_index)
-    history = [
-        (-9, "09:00", bgb, bgb_topics[0], "erledigt", "lernen"),
-        (-8, "16:30", bgb, bgb_topics[0], "erledigt", "lernen"),
-        (-8, "18:15", bub, bub_topics[0], "erledigt", "lernen"),
-        (-7, "10:00", bgb, bgb_topics[0], "erledigt", "lernen"),
-        (-6, "09:00", bgb, bgb_topics[0], "erledigt", "wiederholung"),
-        (-6, "14:00", bgb, bgb_topics[1], "erledigt", "lernen"),
-        (-5, "13:00", bub, bub_topics[0], "erledigt", "wiederholung"),
-        (-4, "09:00", bgb, bgb_topics[1], "erledigt", "lernen"),
-        (-4, "16:30", bgb, bgb_topics[0], "erledigt", "wiederholung"),
-        (-3, "10:00", bgb, bgb_topics[1], "erledigt", "lernen"),
-        (-2, "09:00", bgb, bgb_topics[2], "erledigt", "lernen"),
-        (-2, "16:00", bub, bub_topics[1], "verpasst", "lernen"),
-        (-1, "09:00", bgb, bgb_topics[1], "erledigt", "wiederholung"),
-        (-1, "14:00", bgb, bgb_topics[2], "verpasst", "lernen"),
-    ]
-    for offset, start_s, subj, topic, status, kind in history:
-        st = datetime.combine(today + timedelta(days=offset), time(*map(int, start_s.split(":"))))
-        minutes = 45 if kind == "wiederholung" else 90
-        review = 1 if kind == "wiederholung" else 0
-        db.add(
-            StudyBlock(
-                subject_id=subj.id,
-                topic_id=topic.id,
-                start=st,
-                end=st + timedelta(minutes=minutes),
-                kind=kind,
-                review_number=review,
-                status=status,
-                title=f"{subj.short}: {topic.title}",
-                is_demo=True,
-            )
-        )
-    bgb_topics[2].status = "in_arbeit"
 
     # Stundenplan
     timetable = [

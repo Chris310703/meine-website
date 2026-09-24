@@ -1,4 +1,4 @@
-from . import core, fitness, garmin, recovery, sleep
+from . import calendar, core, fitness, garmin, recovery, sleep, study, timetable
 
 ROUTERS = [
     core.router,
@@ -6,4 +6,7 @@ ROUTERS = [
     fitness.router,
     sleep.router,
     recovery.router,
+    calendar.router,
+    timetable.router,
+    study.router,
 ]

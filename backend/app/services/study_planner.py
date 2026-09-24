@@ -268,9 +268,10 @@ def plan(
         left = sum(u for _, u in queues[s.id])
         if left > 0:
             result.unplanned_minutes[s.id] = left
+            hours_txt = f"{left / 60:.1f}".replace(".", ",").removesuffix(",0")
             result.warnings.append(
-                f"{s.name}: {left / 60:.1f} h Stoff passen nicht mehr bis zur Prüfung am "
-                f"{s.exam_date.strftime('%d.%m.%Y')}. Gib mehr Lernzeit frei oder kürze Themen.".replace(".0 h", " h")
+                f"{s.name}: {hours_txt} h Stoff passen nicht mehr bis zur Prüfung am "
+                f"{s.exam_date.strftime('%d.%m.%Y')}. Gib mehr Lernzeit frei oder kürze Themen."
             )
         elif s.id in overflow_used:
             result.warnings.append(
