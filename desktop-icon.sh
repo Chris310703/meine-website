@@ -20,24 +20,29 @@ APP="$HOME/Desktop/Life OS.app"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# AppleScript: Läuft die App schon → nur Browser öffnen, sonst im Terminal starten
-cat > "$TMP/lifeos.applescript" <<EOF
+# Läuft die App schon → nur Browser öffnen. Sonst das Startskript per „open“ im Terminal
+# ausführen – dafür braucht das Symbol keine Berechtigung, das Terminal fernzusteuern.
+cat > "$TMP/lifeos.applescript" <<APPLESCRIPT
 on run
-	set appRoot to "$ROOT"
 	try
 		do shell script "curl -s -f -m 2 http://127.0.0.1:$PORT/api/health > /dev/null"
 		open location "http://localhost:$PORT"
 	on error
-		tell application "Terminal"
-			activate
-			do script "cd " & quoted form of appRoot & " && bash start.sh"
-		end tell
+		set launcher to (POSIX path of (path to me)) & "Contents/Resources/start.command"
+		do shell script "open -a Terminal " & quoted form of launcher
 	end try
 end run
-EOF
+APPLESCRIPT
 
 rm -rf "$APP"
 osacompile -o "$APP" "$TMP/lifeos.applescript"
+
+cat > "$APP/Contents/Resources/start.command" <<LAUNCHER
+#!/bin/bash
+cd "$ROOT" || { echo "Projektordner nicht gefunden: $ROOT – bitte desktop-icon.sh erneut ausführen."; exit 1; }
+exec bash start.sh
+LAUNCHER
+chmod +x "$APP/Contents/Resources/start.command"
 
 # Icon aus assets/lifeos-icon.png erzeugen
 ICON_PNG="$ROOT/assets/lifeos-icon.png"

@@ -121,7 +121,6 @@ bash desktop-icon.sh
 
 Danach liegt **„Life OS“** mit Icon auf deinem Schreibtisch. Ein Doppelklick startet die App (im Terminal-Fenster) und öffnet sie im Browser – läuft sie schon, öffnet sich nur die Seite. Du kannst das Symbol auch ins Dock ziehen.
 
-- Beim ersten Klick fragt macOS, ob „Life OS“ das Terminal steuern darf → **„OK“**.
 - Das Terminal-Fenster offen lassen, solange du die App nutzt; Schließen beendet die App.
 - Hast du den Projektordner verschoben, `bash desktop-icon.sh` einfach erneut ausführen.
 
