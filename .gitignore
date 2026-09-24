@@ -1,0 +1,30 @@
+# --- Geheimnisse & lokale Daten (niemals committen) ---
+.env
+.env.*
+!.env.example
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+*token*.json
+client_secret*.json
+google_client_secret*.json
+credentials*.json
+
+# --- Python ---
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.deps-stamp*
+
+# --- Node / Frontend ---
+frontend/node_modules/
+frontend/dist/
+
+# --- System ---
+.DS_Store
+*.log
+.idea/
+.vscode/
