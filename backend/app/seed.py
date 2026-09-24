@@ -735,7 +735,7 @@ def _seed_finance(db: Session, today: date, rng: random.Random) -> None:
     first = date(today.year, today.month, 1)
     months = []
     m = first
-    for _ in range(5):
+    for _ in range(12):
         months.append(m)
         m = (m - timedelta(days=1)).replace(day=1)
     for month_start in months:
@@ -801,7 +801,8 @@ def _seed_stocks(db: Session, today: date, rng: random.Random) -> None:
                 continue
             value *= math.exp(drift + rng.gauss(0, 0.012))
             history.append([day.isoformat(), round(value, 2)])
-        history[-1][1] = price
+        scale = price / history[-1][1]  # Verlauf so skalieren, dass er beim aktuellen Kurs endet
+        history = [[d, round(v * scale, 2)] for d, v in history]
         prev = history[-2][1]
         existing = db.get(PriceCache, sym)
         if existing is None:

@@ -1,4 +1,20 @@
-from . import calendar, core, fitness, garmin, habits, journal, nutrition, recovery, sleep, study, timetable, todos
+from . import (
+    calendar,
+    core,
+    finance,
+    fitness,
+    garmin,
+    habits,
+    journal,
+    news,
+    nutrition,
+    recovery,
+    sleep,
+    stocks,
+    study,
+    timetable,
+    todos,
+)
 
 ROUTERS = [
     core.router,
@@ -13,4 +29,7 @@ ROUTERS = [
     habits.router,
     todos.router,
     journal.router,
+    finance.router,
+    stocks.router,
+    news.router,
 ]

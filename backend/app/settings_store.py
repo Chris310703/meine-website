@@ -30,17 +30,17 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Am besten so einstellen wie in Garmin Connect → Herzfrequenzbereiche.
     "hr_zone_limits": [65, 75, 82, 89, 100],
     # Finanzen
-    "monthly_budget": 950,
+    "monthly_budget": 1000,
     "currency": "EUR",
     "budget_categories": {
         "Miete & Wohnen": 420,
-        "Lebensmittel": 220,
+        "Lebensmittel": 280,
         "Mobilität": 60,
         "Freizeit": 90,
         "Uni & Bücher": 40,
         "Sport": 45,
         "Abos": 25,
-        "Sonstiges": 50,
+        "Sonstiges": 40,
     },
     "income_categories": ["Werkstudentenjob", "Eltern", "BAföG/Stipendium", "Sonstiges"],
     # Lernplan
