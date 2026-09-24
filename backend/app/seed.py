@@ -598,7 +598,7 @@ def _seed_daily_life(db: Session, today: date, rng: random.Random, subjects: dic
             types.append("Snack")
         for mt in types:
             name, kcal, p, c, f = rng.choice(MEALS[mt])
-            factor = rng.uniform(0.9, 1.1)
+            factor = rng.uniform(1.0, 1.25)
             db.add(
                 Meal(
                     date=day,
