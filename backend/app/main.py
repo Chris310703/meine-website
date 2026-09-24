@@ -47,10 +47,12 @@ def startup_tasks() -> None:
             log.info("Starte automatischen Garmin-Sync …")
             manager.start_sync()
 
-        from .services import google_calendar
+        from .services import google_calendar, ics_calendars
 
         if config.AUTO_SYNC_ON_START and google_calendar.is_connected():
             google_calendar.start_background_sync()
+        if config.AUTO_SYNC_ON_START:
+            ics_calendars.start_background_loop()
 
 
 @asynccontextmanager

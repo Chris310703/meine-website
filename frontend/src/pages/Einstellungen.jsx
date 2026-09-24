@@ -264,6 +264,87 @@ function ClaudeCard() {
   );
 }
 
+function IcsCard() {
+  const { data, reload } = useApi("/ics");
+  const [form, setForm] = useState({ name: "FamilyWall", url: "" });
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const { bump } = useRefresh();
+
+  useEffect(() => {
+    if (!data?.status?.running) return undefined;
+    const t = setTimeout(() => {
+      reload();
+      bump();
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [data, reload, bump]);
+
+  async function add(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post("/ics", form);
+      setForm({ name: "", url: "" });
+      toast("Kalender verknüpft – Termine werden geladen.", "success");
+      setTimeout(reload, 1500);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const feeds = data?.feeds || [];
+  return (
+    <Card title="🔗 Kalender per Link (z. B. FamilyWall)" actions={<StatusDot ok={feeds.length > 0 && feeds.every((f) => !f.last_error)} label={feeds.length ? `${feeds.length} verknüpft` : "keiner"} />}>
+      <div className="space-y-3 text-sm">
+        <p className="text-ink-2">
+          Holt Termine direkt über einen Kalender-Link (iCal/ICS) – ohne Umweg über Google. Aktualisierung alle {data?.refresh_minutes ?? 15} Minuten und beim App-Start. Die Termine erscheinen im Kalender, auf „Heute“ und der Lernplan plant drumherum.
+        </p>
+        {feeds.length > 0 && (
+          <ul className="space-y-1.5">
+            {feeds.map((f) => (
+              <li key={f.id} className="flex items-center gap-2 rounded-lg border border-line/60 px-2.5 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{f.name}</div>
+                  <div className="truncate text-xs text-ink-3">
+                    {f.last_error ? <span className="text-amber-300">⚠ {f.last_error}</span> : f.last_fetched ? `${f.events} Termine · aktualisiert ${dateTimeText(f.last_fetched)}` : "wird geladen …"}
+                  </div>
+                </div>
+                <ConfirmButton onConfirm={() => api.del(`/ics/${f.id}`).then(() => { reload(); bump(); })} question="Entfernen?">
+                  ✕
+                </ConfirmButton>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form onSubmit={add} className="space-y-2">
+          <Field label="Name">
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="FamilyWall" required />
+          </Field>
+          <Field label="Kalender-Link (webcal:// oder https://…)">
+            <input className="input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="webcal://…" required autoComplete="off" />
+          </Field>
+          <div className="flex gap-2">
+            <button className="btn btn-primary" disabled={busy}>
+              + Verknüpfen
+            </button>
+            {feeds.length > 0 && (
+              <button type="button" className="btn" onClick={() => api.post("/ics/refresh").then(() => setTimeout(reload, 1500))} disabled={data?.status?.running}>
+                ⟳ Jetzt aktualisieren
+              </button>
+            )}
+          </div>
+        </form>
+        <p className="text-xs text-ink-3">
+          Den Link findest du z. B. in Google Kalender beim abonnierten Kalender unter ⋮ → „Einstellungen und Freigabe“. Ist derselbe Kalender auch über Google verbunden, dort den Haken entfernen, sonst erscheinen Termine doppelt.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------- Ziele & Lernplan
 
 function NumberField({ label, value, onChange, step = 1, min, suffix }) {
@@ -645,6 +726,7 @@ export default function Einstellungen() {
           <GarminCard />
           <GoogleCard />
           <ClaudeCard />
+          <IcsCard />
         </div>
       )}
       {tab === "ziele" && (

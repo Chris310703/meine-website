@@ -181,7 +181,7 @@ def today_overview(db: Session = Depends(get_db)) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- Einstellungen
 
-HIDDEN_SETTINGS = {"demo_seeded"}
+HIDDEN_SETTINGS = {"demo_seeded", "ics_calendars"}
 
 
 @router.get("/settings")
@@ -192,7 +192,7 @@ def get_settings(db: Session = Depends(get_db)) -> dict[str, Any]:
 
 @router.put("/settings")
 def put_settings(payload: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
-    allowed = {k: v for k, v in payload.items() if k in settings_store.DEFAULT_SETTINGS}
+    allowed = {k: v for k, v in payload.items() if k in settings_store.DEFAULT_SETTINGS and k not in HIDDEN_SETTINGS}
     if "study" in allowed:
         allowed["study"] = validate_study(allowed["study"])
     values = settings_store.update_many(db, allowed)

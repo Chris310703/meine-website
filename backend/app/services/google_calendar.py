@@ -113,7 +113,7 @@ def disconnect(db: Session) -> None:
         w.google_event_id = None
         w.google_hash = None
     db.execute(delete(GoogleDeletion))
-    db.execute(delete(CalendarEvent).where(CalendarEvent.is_demo.is_(False)))
+    db.execute(delete(CalendarEvent).where(CalendarEvent.is_demo.is_(False), CalendarEvent.calendar_id.notlike("ics:%")))
     db.commit()
 
 
@@ -240,7 +240,9 @@ def pull_events(db: Session, svc, days_back: int = 14, days_forward: int = 90) -
     # Kalender, die nicht mehr ausgewählt sind, aus dem Zwischenspeicher löschen
     db.execute(
         delete(CalendarEvent).where(
-            CalendarEvent.is_demo.is_(False), CalendarEvent.calendar_id.notin_(list(selected))
+            CalendarEvent.is_demo.is_(False),
+            CalendarEvent.calendar_id.notin_(list(selected)),
+            CalendarEvent.calendar_id.notlike("ics:%"),  # Kalender per Link nicht anfassen
         )
     )
     db.commit()
