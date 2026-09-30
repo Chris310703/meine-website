@@ -27,11 +27,10 @@ def startup_tasks() -> None:
             seed.seed_demo_data(db)
 
         # Verpasste Lernblöcke automatisch neu einplanen
-        from .models import StudyBlock
         from .services import study_service
 
         now = datetime.now()
-        if db.query(StudyBlock).filter(StudyBlock.status == "geplant", StudyBlock.end < now).first():
+        if study_service.has_missed_auto_blocks(db, now):
             log.info("Verpasste Lernblöcke gefunden – plane neu …")
             study_service.replan(db, now)
 

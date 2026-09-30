@@ -59,6 +59,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "weekdays": [0, 1, 2, 3, 4, 5, 6],
         "max_blocks_per_subject_per_day": 3,
     },
+    # Lernplan-Modus: "auto" = Life OS verteilt den Stoff, "manuell" = du trägst alle Blöcke selbst ein
+    "study_plan_mode": "auto",
     # Semester für den Stundenplan
     "semester": {"name": "Wintersemester", "start": None, "end": None},
     # Google Kalender

@@ -35,7 +35,7 @@ Life OS bündelt **Training, Schlaf, Erholung, Studium, Planung, Ernährung, Fin
 | ✅ **Habits** | Gewohnheiten abhaken, Streaks, Kalender-Heatmap, **Pomodoro-Fokus-Timer** mit Protokoll (verknüpft mit Lernblöcken) |
 | 📝 **To-dos** | Aufgaben mit Priorität, Fälligkeit und Fach bzw. Kategorie |
 | 🎓 **Stundenplan** | Vorlesungen und Übungen mit Fach, Zeit, Raum und Dozent – wöchentlich oder 14-tägig im Semester, freie Zeitfenster sichtbar |
-| 📚 **Lernplan** | Pro Fach Unterlagen (PDF, Folien) hochladen und Prüfungstermin eintragen, Themen per Claude extrahieren (oder manuell), **automatische Lernblöcke** in freien Zeiten, verteilte Wiederholung, Puffertage, verpasste Blöcke werden neu eingeplant, Fortschritt und Countdown |
+| 📚 **Lernplan** | Pro Fach Unterlagen (PDF, Folien) hochladen und Prüfungstermin eintragen, Themen per Claude extrahieren (oder manuell), **automatische Lernblöcke** in freien Zeiten – oder **selbst planen** (Tag, Uhrzeit, Fach, Thema; erscheint genau so im Kalender), verteilte Wiederholung, Puffertage, verpasste Blöcke werden neu eingeplant, Fortschritt und Countdown |
 | 💶 **Finanzen** | Einnahmen/Ausgaben mit Kategorien, Monatsbudget, Übersichtsdiagramme |
 | 📈 **Aktien** | Depot und Watchlist, aktuelle Kurse (yfinance), Gewinn/Verlust, Kursdiagramme |
 | 📰 **News** | Nachrichten aus deinen RSS-Feeds (Wirtschaft, Recht, Steuern, Sport …) |
@@ -203,6 +203,15 @@ Kalender, die einen Abo-Link (iCal/ICS, beginnt mit `webcal://` oder `https://�
 
 Life OS holt die Termine beim Start und danach alle 15 Minuten (sofort: **„⟳ Aktualisieren“** im Kalender). Sie erscheinen im Kalender und auf „Heute“, und der Lernplan plant keine Lernblöcke darauf. Ist derselbe Kalender auch über Google verbunden, nimm dort den Haken raus, sonst erscheinen Termine doppelt.
 
+## Lernplan selbst planen
+
+Oben im Lernplan gibt es den Schalter **🤖 Automatisch / ✍️ Selbst planen**:
+
+- **Selbst planen:** Life OS legt keine Lernblöcke mehr von sich aus an. Mit **„+ Lernblock“** (oder **„📅 Einplanen“** neben einem Thema) trägst du ein: Fach, Thema, Art (Lernen / Wiederholung / Prüfungsvorbereitung), Tag, von–bis, optional eigener Titel und eine Notiz. Mit **„Jede Woche wiederholen bis …“** legst du feste Lernzeiten für mehrere Wochen auf einmal an. Beim Umschalten kannst du den bisherigen automatischen Plan übernehmen und anpassen oder leer anfangen.
+- **Automatisch:** Life OS verteilt den Stoff wie bisher. Blöcke, die du selbst einträgst oder verschiebst, bleiben trotzdem **fest** stehen – der Rest wird drumherum geplant, und selbst eingeplante Zeit wird beim Stoff mitgezählt.
+
+Ein Klick auf einen Block öffnet ihn zum Ändern, Verschieben oder Löschen. Selbst geplante Blöcke werden **genau so** in den Google-Kalender „Life OS – Lernplan“ geschrieben (Titel wie in der Vorschau „So steht es im Kalender“, die Notiz steht in der Terminbeschreibung) und nie automatisch verschoben. Ist ein solcher Block vorbei, hakst du ihn mit ✓ ab oder markierst ihn mit ✗ als verpasst. Überschneidet sich ein Block mit einem Termin oder dem Stundenplan, bekommst du einen Hinweis.
+
 ---
 
 ## Claude API einrichten
@@ -228,8 +237,8 @@ Für Opus 5 ist der **serverseitige Fallback** aktiviert: Lehnt das Modell eine 
 ## Erste Schritte in der App
 
 1. **Stundenplan:** Semesterzeitraum festlegen (🗓️ Semester) und Vorlesungen/Übungen eintragen. Doppelklick ins Raster legt einen Termin an.
-2. **Lernplan:** Für jedes Fach **„+ Fach“** mit Prüfungstermin anlegen, Unterlagen hochladen und **„Themen mit Claude extrahieren“** – oder Themen manuell eintragen (`Titel | Stunden | Schwierigkeit`). Die Lernblöcke werden automatisch in freie Zeiten gelegt.
-3. **Lernplan-Regeln** anpassen: *Einstellungen → Lernplan* (Lernfenster, max. Stunden pro Tag, Blocklänge, Puffertage, Wiederholungsabstände, Lerntage).
+2. **Lernplan:** Für jedes Fach **„+ Fach“** mit Prüfungstermin anlegen, Unterlagen hochladen und **„Themen mit Claude extrahieren“** – oder Themen manuell eintragen (`Titel | Stunden | Schwierigkeit`). Die Lernblöcke werden automatisch in freie Zeiten gelegt – oder du planst selbst (siehe unten).
+3. **Lernplan-Regeln** anpassen (nur für die automatische Planung): *Einstellungen → Lernplan* (Lernfenster, max. Stunden pro Tag, Blocklänge, Puffertage, Wiederholungsabstände, Lerntage).
 4. **Ziele** setzen: *Einstellungen → Ziele* (Schlaf, Kalorien, Training, Budget, HF-Zonen wie in Garmin Connect).
 5. **Trainings planen:** *Fitness → Geplante Trainings* – sie blockieren Lernzeit und erscheinen im Google-Kalender.
 6. **Aktien:** Symbole wie bei Yahoo Finance verwenden, z. B. `SAP.DE` (Xetra), `EUNL.DE` (ETF), `AAPL` (USA). Kurse sind ca. 15 Minuten verzögert.

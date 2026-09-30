@@ -300,6 +300,8 @@ def block_body(b: StudyBlock) -> dict[str, Any]:
     desc = f"{kind} – {b.subject.name if b.subject else ''}\nErstellt von Life OS."
     if b.topic:
         desc = f"{kind} – {b.subject.name}\nThema: {b.topic.title}\nErstellt von Life OS."
+    if b.note:
+        desc = f"{b.note}\n\n{desc}"
     color = {"lernen": "6", "wiederholung": "5", "puffer": "11"}.get(b.kind, "6")
     return _event_body(f"{icon} {b.title}{done}", b.start, b.end, desc, color, "study_block", b.id)
 

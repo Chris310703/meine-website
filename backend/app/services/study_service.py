@@ -39,10 +39,25 @@ def planner_config(db: Session) -> PlannerConfig:
     )
 
 
+def plan_mode(db: Session) -> str:
+    return "manuell" if settings_store.get(db, "study_plan_mode", "auto") == "manuell" else "auto"
+
+
+def has_missed_auto_blocks(db: Session, now: datetime) -> bool:
+    return (
+        db.query(StudyBlock)
+        .filter(StudyBlock.status == "geplant", StudyBlock.end < now, StudyBlock.manual.is_(False))
+        .first()
+        is not None
+    )
+
+
 def mark_missed(db: Session, now: datetime) -> int:
+    """Automatische Blöcke, die vorbei und nicht erledigt sind, gelten als verpasst.
+    Selbst geplante Blöcke bleiben offen, bis du sie abhakst oder als verpasst markierst."""
     missed = (
         db.query(StudyBlock)
-        .filter(StudyBlock.status == "geplant", StudyBlock.end < now)
+        .filter(StudyBlock.status == "geplant", StudyBlock.end < now, StudyBlock.manual.is_(False))
         .all()
     )
     for b in missed:
@@ -102,7 +117,10 @@ def collect_busy(db: Session, start: date, end: date, now: datetime) -> tuple[li
     kept = (
         db.query(StudyBlock)
         .filter(StudyBlock.start < end_dt, StudyBlock.end > start_dt)
-        .filter((StudyBlock.status == "erledigt") | ((StudyBlock.status == "geplant") & (StudyBlock.start < now)))
+        .filter(
+            (StudyBlock.status == "erledigt")
+            | ((StudyBlock.status == "geplant") & ((StudyBlock.start < now) | StudyBlock.manual.is_(True)))
+        )
         .all()
     )
     for b in kept:
@@ -111,8 +129,31 @@ def collect_busy(db: Session, start: date, end: date, now: datetime) -> tuple[li
     return busy, dict(used)
 
 
-def build_subjects(db: Session, today: date) -> tuple[list[PlanSubject], list[str]]:
+def manual_planned(db: Session, now: datetime) -> dict[int, dict[str, Any]]:
+    """Minuten, die du selbst schon für ein Thema eingeplant hast (noch nicht erledigt),
+    und der Tag des letzten dieser Blöcke."""
+    out: dict[int, dict[str, Any]] = defaultdict(lambda: {"minutes": 0, "last": None})
+    for b in (
+        db.query(StudyBlock)
+        .filter(
+            StudyBlock.manual.is_(True),
+            StudyBlock.status == "geplant",
+            StudyBlock.kind == "lernen",
+            StudyBlock.topic_id.isnot(None),
+            StudyBlock.end >= now,
+        )
+        .all()
+    ):
+        entry = out[b.topic_id]
+        entry["minutes"] += int((b.end - b.start).total_seconds() // 60)
+        if entry["last"] is None or b.start.date() > entry["last"]:
+            entry["last"] = b.start.date()
+    return out
+
+
+def build_subjects(db: Session, today: date, now: datetime | None = None) -> tuple[list[PlanSubject], list[str]]:
     progress = topic_progress(db)
+    manual = manual_planned(db, now or datetime.combine(today, time.min))
     subjects: list[PlanSubject] = []
     notes: list[str] = []
     for s in db.query(Subject).filter(Subject.active.is_(True)).order_by(Subject.id).all():
@@ -125,11 +166,12 @@ def build_subjects(db: Session, today: date) -> tuple[list[PlanSubject], list[st
         topics = []
         for t in s.topics:
             p = progress.get(t.id, {"done_minutes": 0, "last_learn": None, "reviews_done": 0})
+            m = manual.get(t.id, {"minutes": 0, "last": None})
             if t.status == "fertig":
                 remaining = 0
             else:
-                remaining = max(0, int(round(t.effort_hours * 60)) - p["done_minutes"])
-            learned_on = p["last_learn"] if remaining == 0 else None
+                remaining = max(0, int(round(t.effort_hours * 60)) - p["done_minutes"] - m["minutes"])
+            learned_on = (m["last"] or p["last_learn"]) if remaining == 0 else None
             if remaining == 0 and learned_on is None:
                 learned_on = today - timedelta(days=1)
             topics.append(PlanTopic(t.id, t.title, remaining, learned_on, p["reviews_done"], t.order_index))
@@ -144,9 +186,14 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
     db.expire_all()  # frische Daten laden (Themen, die gerade hinzugefügt wurden)
     missed = mark_missed(db, now)
 
-    # Zukünftige Blöcke verwerfen; ihre Google-Termine werden wiederverwendet statt gelöscht,
-    # damit der Kalender beim Neuplanen nicht unnötig viele Termine löscht und neu anlegt.
-    future = db.query(StudyBlock).filter(StudyBlock.status == "geplant", StudyBlock.start >= now).all()
+    # Zukünftige automatische Blöcke verwerfen (selbst geplante bleiben unangetastet);
+    # ihre Google-Termine werden wiederverwendet statt gelöscht, damit der Kalender
+    # beim Neuplanen nicht unnötig viele Termine löscht und neu anlegt.
+    future = (
+        db.query(StudyBlock)
+        .filter(StudyBlock.status == "geplant", StudyBlock.start >= now, StudyBlock.manual.is_(False))
+        .all()
+    )
     unchanged: dict[tuple, tuple[str, str | None]] = {}
     recycled: list[str] = []
     for b in sorted(future, key=lambda x: x.start):
@@ -163,7 +210,13 @@ def replan(db: Session, now: datetime | None = None) -> dict[str, Any]:
         for event_id in recycled + [eid for eid, _ in unchanged.values()]:
             db.add(GoogleDeletion(google_event_id=event_id))
 
-    subjects, notes = build_subjects(db, today)
+    if plan_mode(db) == "manuell":
+        # Du planst selbst: keine automatischen Blöcke anlegen
+        release_event_ids()
+        db.commit()
+        return {"created": 0, "missed": missed, "warnings": [], "unplanned": {}}
+
+    subjects, notes = build_subjects(db, today, now)
     if not subjects:
         release_event_ids()
         db.commit()
@@ -270,5 +323,48 @@ def serialize_block(b: StudyBlock) -> dict[str, Any]:
         "review_number": b.review_number,
         "status": b.status,
         "title": b.title,
+        "manual": bool(b.manual),
+        "note": b.note or "",
         "synced": bool(b.google_event_id),
     }
+
+
+# ---------------------------------------------------------------- Selbst geplante Blöcke
+
+
+def default_block_title(subject: Subject, topic: Topic | None, kind: str) -> str:
+    short = subject.short or subject.name
+    if kind == "wiederholung":
+        return f"{short}: Wiederholung {topic.title}" if topic else f"{short}: Wiederholung"
+    if kind == "puffer":
+        return f"Prüfungsvorbereitung {short}" + (f": {topic.title}" if topic else "")
+    return f"{short}: {topic.title}" if topic else f"{short}: Lernen"
+
+
+def conflicts(db: Session, start: datetime, end: datetime, exclude_block_id: int | None = None) -> list[str]:
+    """Termine, die sich mit dem Zeitraum überschneiden (nur als Hinweis)."""
+    out: list[str] = []
+    q = db.query(StudyBlock).filter(StudyBlock.start < end, StudyBlock.end > start, StudyBlock.status != "verpasst")
+    if exclude_block_id is not None:
+        q = q.filter(StudyBlock.id != exclude_block_id)
+    out += [f"Lernblock „{b.title}“" for b in q.all()]
+    for ev in db.query(CalendarEvent).filter(CalendarEvent.start < end, CalendarEvent.end > start, CalendarEvent.all_day.is_(False)).all():
+        out.append(f"Termin „{ev.title}“")
+    for occ in agenda.timetable_occurrences(db, start.date(), end.date()):
+        if occ["start"] < end and occ["end"] > start:
+            out.append(f"Stundenplan „{occ['title']}“")
+    return out
+
+
+def convert_future_to_manual(db: Session, now: datetime | None = None) -> int:
+    """Übernimmt den bisherigen automatischen Plan als eigenen Plan (nichts wird gelöscht)."""
+    now = now or datetime.now()
+    blocks = (
+        db.query(StudyBlock)
+        .filter(StudyBlock.status == "geplant", StudyBlock.end >= now, StudyBlock.manual.is_(False))
+        .all()
+    )
+    for b in blocks:
+        b.manual = True
+    db.commit()
+    return len(blocks)
