@@ -174,6 +174,8 @@ def today_overview(db: Session = Depends(get_db)) -> dict[str, Any]:
         }
         if next_exam
         else None,
+        "cards_due": db.query(models.Flashcard).filter(models.Flashcard.due <= datetime.now()).count(),
+        "cards_new": db.query(models.Flashcard).filter(models.Flashcard.due.is_(None)).count(),
         "garmin": garmin_manager.status(),
         "demo_active": bool(s.get("demo_active")),
     }
@@ -271,6 +273,7 @@ EXPORT_MODELS = [
     models.Subject, models.Topic, models.StudyBlock, models.TimetableEntry, models.CalendarEvent,
     models.FocusSession, models.Meal, models.Habit, models.HabitLog, models.Todo, models.JournalEntry,
     models.Transaction, models.StockPosition, models.NewsFeed, models.ChatMessage, models.Setting,
+    models.CardSubject, models.CardTopic, models.Flashcard, models.CardReview,
 ]
 
 

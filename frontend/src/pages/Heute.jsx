@@ -179,6 +179,16 @@ export default function Heute() {
           ) : (
             <Empty icon="📚">Keine geplanten Lernblöcke.</Empty>
           )}
+          {(d.cards_due > 0 || d.cards_new > 0) && (
+            <Link to="/karteikarten" className="mt-3 flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm transition hover:border-accent/60 hover:bg-accent/10">
+              <span className="text-lg">🗂️</span>
+              <span className="flex-1">
+                {d.cards_due > 0 ? <b className="text-accent">{d.cards_due} Karteikarten fällig</b> : <b>Keine Karten fällig</b>}
+                {d.cards_new > 0 && <span className="text-ink-3"> · {d.cards_new} neu</span>}
+              </span>
+              <span className="text-xs font-semibold text-accent">Lernen ›</span>
+            </Link>
+          )}
         </Card>
 
         {/* Kalorienbilanz */}

@@ -449,3 +449,70 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(12))  # user | assistant
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+# ---------------------------------------------------------------- Karteikarten
+
+
+class CardSubject(Base):
+    __tablename__ = "card_subjects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    color: Mapped[str] = mapped_column(String(9), default="#22d3ee")
+    emoji: Mapped[str] = mapped_column(String(8), default="📚")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    topics: Mapped[list[CardTopic]] = relationship(
+        back_populates="subject", cascade="all, delete-orphan", order_by="CardTopic.order_index"
+    )
+
+
+class CardTopic(Base):
+    __tablename__ = "card_topics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("card_subjects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    subject: Mapped[CardSubject] = relationship(back_populates="topics")
+    cards: Mapped[list[Flashcard]] = relationship(
+        back_populates="topic", cascade="all, delete-orphan", order_by="Flashcard.id"
+    )
+
+
+class Flashcard(Base):
+    __tablename__ = "flashcards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("card_topics.id", ondelete="CASCADE"), index=True)
+    front: Mapped[str] = mapped_column(Text)
+    back: Mapped[str] = mapped_column(Text)
+    # Spaced Repetition (SM-2-Variante)
+    ease: Mapped[float] = mapped_column(Float, default=2.5)
+    interval_days: Mapped[int] = mapped_column(Integer, default=0)
+    repetitions: Mapped[int] = mapped_column(Integer, default=0)  # richtige Antworten in Folge
+    lapses: Mapped[int] = mapped_column(Integer, default=0)
+    due: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)  # None = neu
+    last_reviewed: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    topic: Mapped[CardTopic] = relationship(back_populates="cards")
+
+
+class CardReview(Base):
+    """Jede Abfrage – Grundlage für den Wochenrückblick (bleibt auch nach dem Löschen der Karte)."""
+
+    __tablename__ = "card_reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    card_id: Mapped[int | None] = mapped_column(ForeignKey("flashcards.id", ondelete="SET NULL"), nullable=True, index=True)
+    subject_id: Mapped[int | None] = mapped_column(ForeignKey("card_subjects.id", ondelete="SET NULL"), nullable=True)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("card_topics.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, default=_now, index=True)
+    grade: Mapped[int] = mapped_column(Integer)  # 1 nochmal · 2 schwer · 3 gut · 4 leicht
+    correct: Mapped[bool] = mapped_column(Boolean)
+    was_new: Mapped[bool] = mapped_column(Boolean, default=False)
+    interval_after: Mapped[int] = mapped_column(Integer, default=0)
