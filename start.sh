@@ -104,8 +104,10 @@ cyan "  ║  LIFE OS läuft auf  $URL"
 cyan "  ║  Beenden mit  Ctrl + C                   ║"
 cyan "  ╚══════════════════════════════════════════╝"
 cyan ""
+# Eindeutige Adresse, damit der Browser keine alte, zwischengespeicherte Oberfläche zeigt
+OPEN_URL="$URL/heute?start=$(date +%s)"
 ( sleep 2.5
-  if command -v open >/dev/null 2>&1; then open "$URL"
-  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 || true
+  if command -v open >/dev/null 2>&1; then open "$OPEN_URL"
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$OPEN_URL" >/dev/null 2>&1 || true
   fi ) &
 exec "$VENV/bin/python" -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT"

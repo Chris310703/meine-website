@@ -26,7 +26,9 @@ cat > "$TMP/lifeos.applescript" <<APPLESCRIPT
 on run
 	try
 		do shell script "curl -s -f -m 2 http://127.0.0.1:$PORT/api/health > /dev/null"
-		open location "http://localhost:$PORT"
+		-- eindeutige Adresse, damit der Browser keine alte Version aus dem Zwischenspeicher zeigt
+		set stamp to do shell script "date +%s"
+		open location "http://localhost:$PORT/heute?start=" & stamp
 	on error
 		set launcher to (POSIX path of (path to me)) & "Contents/Resources/start.command"
 		do shell script "open -a Terminal " & quoted form of launcher
