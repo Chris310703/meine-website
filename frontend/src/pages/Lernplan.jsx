@@ -458,7 +458,7 @@ function newBlockDraft({ subjectId, topicId = null, minutes = 90 }) {
   };
 }
 
-function BlockForm({ initial, subjects, editing, onSaved, onCancel }) {
+function BlockForm({ initial, subjects, editing, manualMode, onSaved, onCancel }) {
   const [f, setF] = useState(initial);
   const [topics, setTopics] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -514,7 +514,12 @@ function BlockForm({ initial, subjects, editing, onSaved, onCancel }) {
   async function remove() {
     try {
       await api.del(`/study/blocks/${editing.id}`);
-      toast("Lernblock gelöscht.", "success");
+      toast(
+        editing.manual || manualMode
+          ? "Lernblock gelöscht."
+          : "Lernblock gelöscht. Hinweis: Im Modus „Automatisch“ verteilt Life OS den Stoff neu – stell auf „Selbst planen“, wenn keine Blöcke nachrücken sollen.",
+        "success",
+      );
       onSaved();
     } catch (err) {
       toast(err.message, "error");
@@ -937,6 +942,7 @@ export default function Lernplan() {
               key={blockForm.editing?.id ?? "neu"}
               initial={blockForm.initial}
               editing={blockForm.editing}
+              manualMode={manualMode}
               subjects={data.subjects}
               onCancel={() => setBlockForm(null)}
               onSaved={() => {
