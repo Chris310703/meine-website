@@ -75,6 +75,8 @@ for router in ROUTERS:
 
 # ---------------------------------------------------------------- Frontend ausliefern
 
+NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+
 if (config.FRONTEND_DIST / "assets").exists():
     app.mount("/assets", StaticFiles(directory=config.FRONTEND_DIST / "assets"), name="assets")
 
@@ -88,7 +90,8 @@ def spa(full_path: str):
         return FileResponse(candidate)
     index = config.FRONTEND_DIST / "index.html"
     if index.exists():
-        return FileResponse(index)
+        # Nie aus dem Browser-Cache laden – sonst zeigt der Browser nach einem Update die alte Oberfläche
+        return FileResponse(index, headers=NO_CACHE)
     return {
         "hinweis": "Das Frontend ist noch nicht gebaut. Starte die App mit ./start.sh "
         "oder öffne im Entwicklungsmodus http://localhost:5173."
