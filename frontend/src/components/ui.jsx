@@ -191,11 +191,11 @@ export function ConfirmButton({ onConfirm, children = "Löschen", question = "Wi
     return () => clearTimeout(t);
   }, [ask]);
   return ask ? (
-    <button className={`${className} !border-red-500/60 !text-red-300`} onClick={() => { setAsk(false); onConfirm(); }}>
+    <button type="button" className={`${className} !border-red-500/60 !text-red-300`} onClick={() => { setAsk(false); onConfirm(); }}>
       {question}
     </button>
   ) : (
-    <button className={className} onClick={() => setAsk(true)}>
+    <button type="button" className={className} onClick={() => setAsk(true)}>
       {children}
     </button>
   );
