@@ -122,3 +122,13 @@ def test_ai_endpoints_without_key(demo_client):
 
 def test_unknown_api_path_is_404(demo_client):
     assert demo_client.get("/api/gibtsnicht").status_code == 404
+
+
+def test_index_html_is_never_cached(client, tmp_path, monkeypatch):
+    from app import config
+
+    (tmp_path / "index.html").write_text("<html>Life OS</html>")
+    monkeypatch.setattr(config, "FRONTEND_DIST", tmp_path)
+    r = client.get("/lernplan")
+    assert r.status_code == 200 and "Life OS" in r.text
+    assert "no-cache" in r.headers["cache-control"]
