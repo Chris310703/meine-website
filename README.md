@@ -36,6 +36,7 @@ Life OS bündelt **Training, Schlaf, Erholung, Studium, Planung, Ernährung, Fin
 | 📝 **To-dos** | Aufgaben mit Priorität, Fälligkeit und Fach bzw. Kategorie |
 | 🎓 **Stundenplan** | Vorlesungen und Übungen mit Fach, Zeit, Raum und Dozent – wöchentlich oder 14-tägig im Semester, freie Zeitfenster sichtbar |
 | 📚 **Lernplan** | Pro Fach Unterlagen (PDF, Folien) hochladen und Prüfungstermin eintragen, Themen per Claude extrahieren (oder manuell), **automatische Lernblöcke** in freien Zeiten – oder **selbst planen** (Tag, Uhrzeit, Fach, Thema; erscheint genau so im Kalender), verteilte Wiederholung, Puffertage, verpasste Blöcke werden neu eingeplant, Fortschritt und Countdown |
+| 🗂️ **Karteikarten** | Fächer → Themen → Karten, Abfrage eines ganzen Fachs, einzelner oder mehrerer Themen oder aller Fächer gemischt, **Spaced Repetition** (Karten kommen automatisch in wachsenden Abständen wieder), **Import direkt aus Claude**, Wochenrückblick mit richtig/falsch pro Tag, Fach und Thema |
 | 💶 **Finanzen** | Einnahmen/Ausgaben mit Kategorien, Monatsbudget, Übersichtsdiagramme |
 | 📈 **Aktien** | Depot und Watchlist, aktuelle Kurse (yfinance), Gewinn/Verlust, Kursdiagramme |
 | 📰 **News** | Nachrichten aus deinen RSS-Feeds (Wirtschaft, Recht, Steuern, Sport …) |
@@ -214,9 +215,30 @@ Ein Klick auf einen Block öffnet ihn zum Ändern, Verschieben oder Löschen. Se
 
 ---
 
+## Karteikarten
+
+**Aufbau:** Unter *Karteikarten* legst du **Fächer** an (z. B. Zivilrecht), darin **Themen** (z. B. Anfechtung) und darin die Karten. Fächer aus dem Lernplan lassen sich beim Anlegen mit einem Klick übernehmen.
+
+**Abfragen:**
+
+- **▶ Fällige lernen** – Spaced Repetition: nur Karten, die heute dran sind, plus bis zu 20 neue. Geht für alle Fächer, ein ganzes Fach, ein einzelnes Thema oder mehrere angehakte Themen.
+- **⟳ Alle abfragen** – alle Karten der Auswahl gemischt, z. B. kurz vor der Klausur. Richtige Antworten verschieben hier den Plan nicht, falsche holen die Karte zurück in die Wiederholung.
+- Karte mit Klick oder **Leertaste** umdrehen, dann bewerten: **1 Nochmal** (falsch – kommt in 10 Minuten bzw. am Ende der Runde wieder), **2 Schwer**, **3 Gut**, **4 Leicht**. Unter jedem Knopf steht, wann die Karte wiederkommt. Je öfter du sie weißt, desto größer werden die Abstände (1 Tag → 3 Tage → ~1 Woche → …).
+
+**Aus Claude importieren** (Reiter *Import*):
+
+1. **„📋 Prompt für Claude kopieren“** klicken und in Claude einfügen, deinen Stoff (Skript, Folien, Stichpunkte) anhängen.
+2. Claudes Antwort komplett kopieren und einfügen → **Vorschau** → **Importieren**. Fach und Themen aus der Antwort werden automatisch angelegt, doppelte Karten übersprungen.
+
+Neben dem JSON aus dem Prompt funktionieren auch `F: … / A: …`-Blöcke, eine Karte pro Zeile (`Frage | Antwort`, Tab oder `;`), Markdown-Tabellen sowie Überschriften `# Fach: …` und `## Thema: …`. Mit Claude-API-Schlüssel gibt es zusätzlich **„Direkt mit Claude erzeugen“** ohne Kopieren.
+
+**Wochenrückblick:** Abfragen, richtig/falsch und Trefferquote pro Tag, pro Fach und pro Thema, Vergleich zur Vorwoche, die am häufigsten falsch beantworteten Karten – mit ‹ › auch für frühere Wochen. Die Zahlen erscheinen außerdem im allgemeinen *Rückblick*, und auf *Heute* siehst du, wie viele Karten fällig sind.
+
+---
+
 ## Claude API einrichten
 
-Claude wird für die **Themen-Extraktion im Lernplan**, den **KI-Chat** und die **KI-Zusammenfassung im Rückblick** genutzt. Alle anderen Funktionen laufen auch ohne Schlüssel.
+Claude wird für die **Themen-Extraktion im Lernplan**, das **Erzeugen von Karteikarten**, den **KI-Chat** und die **KI-Zusammenfassung im Rückblick** genutzt. Alle anderen Funktionen laufen auch ohne Schlüssel.
 
 1. Auf <https://console.anthropic.com/> registrieren bzw. anmelden.
 2. Unter **„Billing“** Guthaben aufladen (5–10 € reichen für viele Anfragen).
@@ -294,6 +316,7 @@ Deine Daten (`backend/data/`) und die `.env` bleiben dabei erhalten. Danach die 
 
 - **Backend:** Python, FastAPI, SQLAlchemy, SQLite – `backend/app/`
   - `services/study_planner.py` – Lernplan-Algorithmus (reine Funktion, getestet)
+  - `services/flashcards.py` – Karteikarten: Spaced Repetition (SM-2-Variante) und Import-Parser (reine Funktionen, getestet)
   - `services/recovery.py` – Recovery-Ampel (reine Funktion, getestet)
   - `services/garmin_sync.py`, `services/google_calendar.py`, `services/claude_ai.py` – Anbindungen
   - `seed.py` – Beispieldaten

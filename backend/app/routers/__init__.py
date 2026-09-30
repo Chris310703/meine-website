@@ -1,6 +1,7 @@
 from . import (
     ai,
     calendar,
+    cards,
     core,
     finance,
     fitness,
@@ -28,6 +29,7 @@ ROUTERS = [
     ics.router,
     timetable.router,
     study.router,
+    cards.router,
     nutrition.router,
     habits.router,
     todos.router,

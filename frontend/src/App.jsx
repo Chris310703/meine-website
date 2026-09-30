@@ -14,6 +14,7 @@ const Habits = lazy(() => import("./pages/Habits"));
 const Todos = lazy(() => import("./pages/Todos"));
 const Stundenplan = lazy(() => import("./pages/Stundenplan"));
 const Lernplan = lazy(() => import("./pages/Lernplan"));
+const Karteikarten = lazy(() => import("./pages/Karteikarten"));
 const Finanzen = lazy(() => import("./pages/Finanzen"));
 const Aktien = lazy(() => import("./pages/Aktien"));
 const News = lazy(() => import("./pages/News"));
@@ -33,6 +34,7 @@ export const NAV = [
   { path: "/todos", label: "To-dos", icon: "📝", element: Todos },
   { path: "/stundenplan", label: "Stundenplan", icon: "🎓", element: Stundenplan },
   { path: "/lernplan", label: "Lernplan", icon: "📚", element: Lernplan },
+  { path: "/karteikarten", label: "Karteikarten", icon: "🗂️", element: Karteikarten },
   { path: "/finanzen", label: "Finanzen", icon: "💶", element: Finanzen },
   { path: "/aktien", label: "Aktien", icon: "📈", element: Aktien },
   { path: "/news", label: "News", icon: "📰", element: News },

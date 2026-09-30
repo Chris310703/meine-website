@@ -151,6 +151,13 @@ export default function Rueckblick() {
           <Row label="Verpasste Blöcke" value={c.study.missed_blocks} cur={c.study.missed_blocks} prev={p.study.missed_blocks} better="down" format={(v) => num(v)} />
           <Row label="Quote" value={c.study.completion === null ? "–" : `${c.study.completion} %`} cur={c.study.completion} prev={p.study.completion} format={(v) => `${num(v)} %`} />
           <Row label="Fokuszeit (Pomodoro)" value={minutesText(c.study.focus_minutes)} cur={c.study.focus_minutes} prev={p.study.focus_minutes} format={(v) => `${num(v)} min`} />
+          {c.cards && (c.cards.reviews > 0 || p.cards?.reviews > 0) && (
+            <>
+              <Row label="🗂️ Karteikarten abgefragt" value={num(c.cards.reviews)} cur={c.cards.reviews} prev={p.cards?.reviews} format={(v) => num(v)} />
+              <Row label="🗂️ Richtig / Falsch" value={`${num(c.cards.correct)} / ${num(c.cards.wrong)}`} />
+              <Row label="🗂️ Trefferquote" value={c.cards.accuracy === null ? "–" : `${c.cards.accuracy} %`} cur={c.cards.accuracy} prev={p.cards?.accuracy} format={(v) => `${num(v)} %`} />
+            </>
+          )}
           {Object.entries(c.study.per_subject).map(([s, m]) => (
             <Row key={s} label={`· ${s}`} value={minutesText(m)} />
           ))}

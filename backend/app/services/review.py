@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from .. import settings_store
 from ..models import (
     Activity,
+    CardReview,
     DailyMetrics,
     FocusSession,
     Habit,
@@ -125,6 +126,16 @@ def summarize(db: Session, start: date, end: date) -> dict[str, Any]:
         "per_subject": dict(sorted(per_subject.items(), key=lambda x: -x[1])),
     }
 
+    # Karteikarten
+    card_reviews = db.query(CardReview).filter(CardReview.reviewed_at >= _dt(start), CardReview.reviewed_at < _dt(end + timedelta(days=1))).all()
+    cards_correct = sum(1 for r in card_reviews if r.correct)
+    cards = {
+        "reviews": len(card_reviews),
+        "correct": cards_correct,
+        "wrong": len(card_reviews) - cards_correct,
+        "accuracy": round(cards_correct / len(card_reviews) * 100) if card_reviews else None,
+    }
+
     # Habits
     active = db.query(Habit).filter(Habit.active.is_(True)).all()
     logs = db.query(HabitLog).filter(HabitLog.date >= start, HabitLog.date <= last).all()
@@ -192,6 +203,7 @@ def summarize(db: Session, start: date, end: date) -> dict[str, Any]:
         "sleep": sleep,
         "recovery": rec,
         "study": study,
+        "cards": cards,
         "habits": habits,
         "todos": todos,
         "nutrition": nutrition,
@@ -226,6 +238,9 @@ def highlights(cur: dict[str, Any], prev: dict[str, Any]) -> list[dict[str, str]
         out.append({"tone": tone, "icon": "📚", "text": f"{_fmt(st['done_minutes'] / 60)} h gelernt ({st['done_blocks']} Blöcke), {st['missed_blocks']} verpasst."})
     if st["focus_minutes"]:
         out.append({"tone": "good", "icon": "🍅", "text": f"{st['focus_sessions']} Fokus-Sessions mit {_fmt(st['focus_minutes'] / 60)} h Fokuszeit."})
+    ca = cur["cards"]
+    if ca["reviews"]:
+        out.append({"tone": "good" if (ca["accuracy"] or 0) >= 75 else "neutral", "icon": "🗂️", "text": f"{ca['reviews']} Karteikarten abgefragt: {ca['correct']} richtig, {ca['wrong']} falsch ({ca['accuracy']} %)."})
     hb = cur["habits"]
     if hb["rate"] is not None:
         extra = f", stärkster Habit: {hb['best']['emoji']} {hb['best']['name']}" if hb["best"] else ""

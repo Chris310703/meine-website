@@ -298,3 +298,48 @@ body {
 .spin {
   animation: spin 1s linear infinite;
 }
+
+/* Karteikarten: 3D-Umdrehen */
+.flip-scene {
+  perspective: 1600px;
+}
+.flip-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.flip-card.flipped {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.card-in {
+  animation: card-in 0.3s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip-card,
+  .card-in {
+    transition: none;
+    animation: none;
+  }
+}
