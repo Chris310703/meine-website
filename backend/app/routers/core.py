@@ -8,7 +8,7 @@ import zipfile
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -195,8 +195,10 @@ def put_settings(payload: dict[str, Any], db: Session = Depends(get_db)) -> dict
     allowed = {k: v for k, v in payload.items() if k in settings_store.DEFAULT_SETTINGS and k not in HIDDEN_SETTINGS}
     if "study" in allowed:
         allowed["study"] = validate_study(allowed["study"])
+    if "study_plan_mode" in allowed and allowed["study_plan_mode"] not in ("auto", "manuell"):
+        raise HTTPException(status_code=400, detail="Lernplan-Modus muss „auto“ oder „manuell“ sein.")
     values = settings_store.update_many(db, allowed)
-    if {"study", "semester"} & set(allowed):
+    if {"study", "semester", "study_plan_mode"} & set(allowed):
         from ..services import google_calendar, study_service
 
         study_service.replan(db)
@@ -206,8 +208,6 @@ def put_settings(payload: dict[str, Any], db: Session = Depends(get_db)) -> dict
 
 def validate_study(study: dict[str, Any]) -> dict[str, Any]:
     """Prüft die Lernplan-Regeln, damit der Planer nicht mit unsinnigen Werten läuft."""
-    from fastapi import HTTPException
-
     from ..services.agenda import parse_hhmm
 
     merged = dict(settings_store.DEFAULT_SETTINGS["study"])

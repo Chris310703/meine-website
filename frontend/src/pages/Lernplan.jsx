@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Badge, Card, ConfirmButton, Empty, ErrorBox, Field, Loading, Modal, PageHeader, ProgressBar, Ring, Stat, useToast } from "../components/ui";
+import { Badge, Card, ConfirmButton, Empty, ErrorBox, Field, Loading, Modal, PageHeader, ProgressBar, Ring, Segmented, Stat, useToast } from "../components/ui";
 import { api, useApi } from "../lib/api";
 import { dateLong, dayLabel, isoDate, minutesText, num, relativeDay, timeText } from "../lib/format";
 
@@ -101,7 +101,7 @@ function SubjectForm({ initial, onSave, onCancel }) {
   );
 }
 
-function SubjectDetail({ subjectId, onChanged, claudeAvailable }) {
+function SubjectDetail({ subjectId, onChanged, claudeAvailable, onPlanTopic, manualMode }) {
   const { data, error, loading, reload } = useApi(`/study/subjects/${subjectId}`, [subjectId]);
   const [editOpen, setEditOpen] = useState(false);
   const [text, setText] = useState("");
@@ -233,7 +233,7 @@ function SubjectDetail({ subjectId, onChanged, claudeAvailable }) {
         <Stat label="Countdown" value={s.days_left !== null ? `${s.days_left} Tage` : "–"} sub={s.exam_date ? `${dateLong(s.exam_date)}${s.exam_location ? ` · ${s.exam_location}` : ""}` : "Prüfungstermin eintragen"} />
         <Stat label="Fortschritt" value={`${s.progress} %`} sub={`${minutesText(s.done_minutes)} von ${minutesText(s.required_minutes)}`} />
         <Stat label="Eingeplant" value={minutesText(s.planned_minutes)} sub={s.next_block ? `nächster Block: ${relativeDay(s.next_block)} ${timeText(s.next_block)}` : "keine Blöcke"} />
-        <Stat label="Blöcke" value={`${s.blocks_done} erledigt`} sub={s.blocks_missed ? `${s.blocks_missed} verpasst (neu eingeplant)` : "nichts verpasst"} />
+        <Stat label="Blöcke" value={`${s.blocks_done} erledigt`} sub={s.blocks_missed ? `${s.blocks_missed} verpasst${manualMode ? "" : " (neu eingeplant)"}` : "nichts verpasst"} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
@@ -284,6 +284,9 @@ function SubjectDetail({ subjectId, onChanged, claudeAvailable }) {
                                 </option>
                               ))}
                             </select>
+                            <button className="btn btn-sm" onClick={() => onPlanTopic(t)} title="Lernblock für dieses Thema eintragen">
+                              📅 Einplanen
+                            </button>
                             <ConfirmButton onConfirm={() => api.del(`/study/topics/${t.id}`).then(refresh)} question="Löschen?">
                               ✕
                             </ConfirmButton>
@@ -421,7 +424,198 @@ function SubjectDetail({ subjectId, onChanged, claudeAvailable }) {
   );
 }
 
-function BlockList({ blocks, onStatus }) {
+function hhmm(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function defaultTitle(subject, topic, kind) {
+  if (!subject) return "";
+  const short = subject.short || subject.name;
+  if (kind === "wiederholung") return topic ? `${short}: Wiederholung ${topic.title}` : `${short}: Wiederholung`;
+  if (kind === "puffer") return `Prüfungsvorbereitung ${short}${topic ? `: ${topic.title}` : ""}`;
+  return topic ? `${short}: ${topic.title}` : `${short}: Lernen`;
+}
+
+// Neuer Block: nächste volle Stunde, Dauer = Blocklänge aus den Regeln
+function newBlockDraft({ subjectId, topicId = null, minutes = 90 }) {
+  const start = new Date();
+  start.setMinutes(0, 0, 0);
+  start.setHours(start.getHours() + 1);
+  if (start.getHours() < 8) start.setHours(8);
+  const end = new Date(start.getTime() + minutes * 60000);
+  const sameDay = isoDate(end) === isoDate(start);
+  return {
+    subject_id: subjectId,
+    topic_id: topicId,
+    date: isoDate(start),
+    start_time: hhmm(start),
+    end_time: sameDay ? hhmm(end) : "23:45",
+    kind: "lernen",
+    title: "",
+    note: "",
+    repeat: false,
+    repeat_until: "",
+  };
+}
+
+function BlockForm({ initial, subjects, editing, onSaved, onCancel }) {
+  const [f, setF] = useState(initial);
+  const [topics, setTopics] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const subject = subjects.find((s) => s.id === Number(f.subject_id));
+  const topic = topics.find((t) => t.id === Number(f.topic_id)) || null;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  useEffect(() => {
+    if (!f.subject_id) return;
+    api
+      .get(`/study/subjects/${f.subject_id}`)
+      .then((d) => setTopics(d.topics))
+      .catch(() => setTopics([]));
+  }, [f.subject_id]);
+
+  const title = f.title.trim() || defaultTitle(subject, topic, f.kind);
+  const valid = subject && f.date && f.start_time && f.end_time && f.end_time > f.start_time;
+
+  async function save(e) {
+    e.preventDefault();
+    if (!valid) return;
+    setSaving(true);
+    const body = {
+      subject_id: Number(f.subject_id),
+      topic_id: f.topic_id ? Number(f.topic_id) : null,
+      date: f.date,
+      start_time: f.start_time,
+      end_time: f.end_time,
+      kind: f.kind,
+      title: f.title.trim(),
+      note: f.note,
+    };
+    try {
+      let r;
+      if (editing) {
+        r = await api.patch(`/study/blocks/${editing.id}`, body);
+      } else {
+        r = await api.post("/study/blocks", { ...body, repeat_until: f.repeat && f.repeat_until ? f.repeat_until : null });
+      }
+      const count = r.blocks ? r.blocks.length : 1;
+      toast(editing ? "Lernblock gespeichert." : count > 1 ? `${count} Lernblöcke eingetragen.` : "Lernblock eingetragen.", "success");
+      const warnings = r.warnings || [];
+      if (warnings.length) toast(`⚠ ${warnings[0]}${warnings.length > 1 ? ` (+ ${warnings.length - 1} weitere Überschneidungen)` : ""}`);
+      onSaved();
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    try {
+      await api.del(`/study/blocks/${editing.id}`);
+      toast("Lernblock gelöscht.", "success");
+      onSaved();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  return (
+    <form className="grid grid-cols-2 gap-3" onSubmit={save}>
+      <Field label="Fach" className="col-span-2 sm:col-span-1">
+        <select className="input" value={f.subject_id || ""} onChange={(e) => setF({ ...f, subject_id: e.target.value, topic_id: null })} required>
+          <option value="" disabled>
+            Fach wählen …
+          </option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Thema" className="col-span-2 sm:col-span-1">
+        <select className="input" value={f.topic_id || ""} onChange={(e) => setF({ ...f, topic_id: e.target.value || null })}>
+          <option value="">– ohne bestimmtes Thema –</option>
+          {topics.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="col-span-2">
+        <Segmented
+          value={f.kind}
+          onChange={(kind) => setF({ ...f, kind })}
+          options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label: `${KIND_ICON[value]} ${label}` }))}
+        />
+      </div>
+      <Field label="Tag" className="col-span-2 sm:col-span-1">
+        <input type="date" className="input" value={f.date} onChange={set("date")} required />
+      </Field>
+      <div className="col-span-2 grid grid-cols-2 gap-3 sm:col-span-1">
+        <Field label="Von">
+          <input type="time" step="300" className="input" value={f.start_time} onChange={set("start_time")} required />
+        </Field>
+        <Field label="Bis">
+          <input type="time" step="300" className="input" value={f.end_time} onChange={set("end_time")} required />
+        </Field>
+      </div>
+      <Field label="Titel im Kalender (leer = automatisch)" className="col-span-2">
+        <input className="input" value={f.title} onChange={set("title")} placeholder={defaultTitle(subject, topic, f.kind) || "z. B. Altklausur 2023"} maxLength={250} />
+      </Field>
+      <Field label="Notiz (steht in der Terminbeschreibung)" className="col-span-2">
+        <textarea className="input" rows={2} value={f.note} onChange={set("note")} placeholder="z. B. Skript S. 40–65, Fälle 3–5" />
+      </Field>
+      {!editing && (
+        <div className="col-span-2 flex flex-wrap items-center gap-3 text-sm text-ink-2">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={f.repeat} onChange={(e) => setF({ ...f, repeat: e.target.checked })} />
+            Jede Woche wiederholen
+          </label>
+          {f.repeat && (
+            <label className="flex items-center gap-2">
+              bis
+              <input type="date" className="input w-auto py-1" value={f.repeat_until} min={f.date} onChange={set("repeat_until")} required />
+            </label>
+          )}
+        </div>
+      )}
+      {f.end_time && f.start_time && f.end_time <= f.start_time && <p className="col-span-2 text-xs text-red-300">Das Ende muss nach dem Beginn liegen.</p>}
+
+      <div className="col-span-2 rounded-lg border border-accent/30 bg-accent/[0.05] px-3 py-2 text-sm">
+        <div className="text-[0.65rem] uppercase tracking-wide text-ink-3">So steht es im Kalender</div>
+        <div className="mt-0.5 font-medium">
+          {KIND_ICON[f.kind]} {title || "…"}
+        </div>
+        <div className="text-xs text-ink-2">
+          {f.date ? dayLabel(f.date) : "–"} · {f.start_time}–{f.end_time}
+          {f.repeat && f.repeat_until ? ` · jede Woche bis ${dateLong(f.repeat_until)}` : ""}
+        </div>
+      </div>
+
+      <div className="col-span-2 flex items-center justify-end gap-2">
+        {editing && (
+          <span className="mr-auto">
+            <ConfirmButton onConfirm={remove} question="Wirklich löschen?">
+              Löschen
+            </ConfirmButton>
+          </span>
+        )}
+        <button type="button" className="btn" onClick={onCancel}>
+          Abbrechen
+        </button>
+        <button className="btn btn-primary" disabled={!valid || saving}>
+          {saving ? "Speichere …" : editing ? "Speichern" : "Eintragen"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function BlockList({ blocks, onStatus, onEdit, manualMode }) {
   const [showPast, setShowPast] = useState(false);
   const now = new Date();
   const todayKey = isoDate(now);
@@ -440,7 +634,7 @@ function BlockList({ blocks, onStatus }) {
           {showPast ? "Vergangene ausblenden" : "Letzte 7 Tage anzeigen"}
         </button>
       )}
-      {!days.length && <Empty icon="📚">Keine Lernblöcke geplant.</Empty>}
+      {!days.length && <Empty icon="📚">{manualMode ? "Noch keine Lernblöcke. Trage mit „+ Lernblock“ ein, wann du was lernst." : "Keine Lernblöcke geplant."}</Empty>}
     <div className="max-h-[640px] space-y-4 overflow-y-auto pr-1">
       {days.map((d) => (
         <div key={d}>
@@ -462,15 +656,16 @@ function BlockList({ blocks, onStatus }) {
                     <br />
                     <span className="text-ink-3">{timeText(b.end)}</span>
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <button className="min-w-0 flex-1 text-left hover:text-accent" onClick={() => onEdit(b)} title="Bearbeiten oder verschieben">
                     <div className={`line-clamp-2 text-sm leading-snug ${b.status === "verpasst" ? "line-through" : ""}`}>
                       {KIND_ICON[b.kind]} {b.title}
                     </div>
                     <div className="text-xs text-ink-3">
                       {b.subject} · {KIND_LABEL[b.kind]}
+                      {b.manual && !manualMode ? " · ✍️ fest" : ""}
                       {b.synced ? " · 📅 Google" : ""}
                     </div>
-                  </div>
+                  </button>
                   {b.status === "erledigt" ? (
                     <Badge color="#22c55e">✓</Badge>
                   ) : b.status === "verpasst" ? (
@@ -481,7 +676,7 @@ function BlockList({ blocks, onStatus }) {
                         ✓
                       </button>
                       {past && (
-                        <button className="btn btn-sm" onClick={() => onStatus(b, "verpasst")} title="Verpasst – neu einplanen">
+                        <button className="btn btn-sm" onClick={() => onStatus(b, "verpasst")} title={b.manual ? "Verpasst" : "Verpasst – neu einplanen"}>
                           ✗
                         </button>
                       )}
@@ -503,6 +698,9 @@ export default function Lernplan() {
   const [selected, setSelected] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [blockForm, setBlockForm] = useState(null); // { initial, editing }
+  const [modeAsk, setModeAsk] = useState(false);
+  const [detailVersion, setDetailVersion] = useState(0);
   const toast = useToast();
 
   useEffect(() => {
@@ -536,10 +734,59 @@ export default function Lernplan() {
     }
   }
 
+  const manualMode = data.plan_mode === "manuell";
+
+  async function changeMode(mode, keepPlan = true) {
+    setModeAsk(false);
+    setBusy(true);
+    try {
+      const r = await api.post("/study/mode", { mode, keep_plan: keepPlan });
+      toast(
+        mode === "manuell"
+          ? r.kept
+            ? `Du planst jetzt selbst – ${r.kept} bisherige Blöcke übernommen. Klick auf einen Block, um ihn zu ändern.`
+            : "Du planst jetzt selbst. Trage mit „+ Lernblock“ ein, wann du was lernst."
+          : "Life OS plant wieder automatisch – deine eigenen Blöcke bleiben fest stehen.",
+        "success",
+      );
+      reload();
+      setDetailVersion((v) => v + 1);
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openNewBlock(subjectId = selected, topicId = null) {
+    setBlockForm({ initial: newBlockDraft({ subjectId: subjectId || data.subjects[0]?.id || "", topicId, minutes: data.settings.block_minutes }), editing: null });
+  }
+
+  function openEditBlock(b) {
+    // Automatisch erzeugte Titel leer lassen, damit sie sich beim Themenwechsel mitändern
+    const subject = data.subjects.find((s) => s.id === b.subject_id);
+    const auto = !b.manual || b.title === defaultTitle(subject, b.topic ? { title: b.topic } : null, b.kind);
+    setBlockForm({
+      initial: {
+        subject_id: b.subject_id,
+        topic_id: b.topic_id,
+        date: isoDate(b.start),
+        start_time: timeText(b.start),
+        end_time: timeText(b.end),
+        kind: b.kind,
+        title: auto ? "" : b.title,
+        note: b.note || "",
+        repeat: false,
+        repeat_until: "",
+      },
+      editing: b,
+    });
+  }
+
   async function setStatus(b, status) {
     try {
       await api.post(`/study/blocks/${b.id}/status`, { status });
-      toast(status === "erledigt" ? "Stark! Block erledigt ✓" : "Block als verpasst markiert und neu eingeplant.", "success");
+      toast(status === "erledigt" ? "Stark! Block erledigt ✓" : b.manual ? "Block als verpasst markiert." : "Block als verpasst markiert und neu eingeplant.", "success");
       reload();
     } catch (e) {
       toast(e.message, "error");
@@ -565,26 +812,58 @@ export default function Lernplan() {
       <PageHeader
         title="Lernplan"
         icon="📚"
-        subtitle={`Lernfenster ${st.day_start}–${st.day_end} · max. ${minutesText(st.max_minutes_per_day)}/Tag · Blöcke à ${st.block_minutes} min · ${st.buffer_days} Puffertage · Wiederholung nach ${st.review_intervals.join("/")} Tagen`}
+        subtitle={
+          manualMode
+            ? "Du planst selbst: Jeder Block steht genau so im Kalender, wie du ihn einträgst – nichts wird verschoben."
+            : `Lernfenster ${st.day_start}–${st.day_end} · max. ${minutesText(st.max_minutes_per_day)}/Tag · Blöcke à ${st.block_minutes} min · ${st.buffer_days} Puffertage · Wiederholung nach ${st.review_intervals.join("/")} Tagen`
+        }
         actions={
           <>
-            <Link to="/einstellungen" className="btn">
-              ⚙ Regeln
-            </Link>
+            {!manualMode && (
+              <Link to="/einstellungen" className="btn">
+                ⚙ Regeln
+              </Link>
+            )}
             {data.google_connected && (
               <button className="btn" onClick={googleSync}>
                 📅 In Google speichern
               </button>
             )}
-            <button className="btn" onClick={replan} disabled={busy}>
-              ⟳ Neu planen
-            </button>
-            <button className="btn btn-primary" onClick={() => setNewOpen(true)}>
+            {!manualMode && (
+              <button className="btn" onClick={replan} disabled={busy}>
+                ⟳ Neu planen
+              </button>
+            )}
+            <button className="btn" onClick={() => setNewOpen(true)}>
               + Fach
+            </button>
+            <button className="btn btn-primary" onClick={() => openNewBlock()} disabled={!data.subjects.length} title={data.subjects.length ? "" : "Lege zuerst ein Fach an"}>
+              + Lernblock
             </button>
           </>
         }
       />
+
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <span className="text-xs uppercase tracking-wide text-ink-3">Planung</span>
+        <Segmented
+          value={data.plan_mode}
+          onChange={(mode) => {
+            if (mode === data.plan_mode || busy) return;
+            if (mode === "manuell") setModeAsk(true);
+            else changeMode("auto");
+          }}
+          options={[
+            { value: "auto", label: "🤖 Automatisch" },
+            { value: "manuell", label: "✍️ Selbst planen" },
+          ]}
+        />
+        <span className="text-xs text-ink-3">
+          {manualMode
+            ? "Tipp: „📅 Einplanen“ neben einem Thema oder „+ Lernblock“ – ein Klick auf einen Block ändert oder verschiebt ihn."
+            : "Life OS verteilt den Stoff. Eigene Blöcke („+ Lernblock“) bleiben fest stehen, der Rest wird drumherum geplant."}
+        </span>
+      </div>
 
       {warnings.length > 0 && (
         <div className="mb-5 space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -599,7 +878,7 @@ export default function Lernplan() {
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <Stat label="Diese Woche geplant" value={minutesText(data.week.planned_minutes)} />
             <Stat label="Davon erledigt" value={minutesText(data.week.done_minutes)} sub={data.week.planned_minutes ? `${Math.round((data.week.done_minutes / data.week.planned_minutes) * 100)} %` : null} />
-            <Stat label="Verpasst (neu eingeplant)" value={data.week.missed} />
+            <Stat label={manualMode ? "Verpasst" : "Verpasst (neu eingeplant)"} value={data.week.missed} />
             <Stat label="Fokuszeit (Pomodoro)" value={minutesText(data.week.focus_minutes)} sub={<Link to="/habits" className="text-accent">Timer starten →</Link>} />
           </div>
         </Card>
@@ -618,9 +897,11 @@ export default function Lernplan() {
         <div className="col-span-12 xl:col-span-8">
           {selected && (
             <SubjectDetail
-              key={selected}
+              key={`${selected}-${detailVersion}`}
               subjectId={selected}
               claudeAvailable={data.claude_available}
+              manualMode={manualMode}
+              onPlanTopic={(t) => openNewBlock(selected, t.id)}
               onChanged={(deleted) => {
                 if (deleted) setSelected(null);
                 reload();
@@ -629,10 +910,60 @@ export default function Lernplan() {
           )}
         </div>
 
-        <Card title="Lernblöcke (nächste 3 Wochen)" className="col-span-12 xl:col-span-4">
-          <BlockList blocks={data.blocks} onStatus={setStatus} />
+        <Card
+          title={manualMode ? "Deine Lernblöcke" : "Lernblöcke (nächste 3 Wochen)"}
+          className="col-span-12 xl:col-span-4"
+          actions={
+            data.subjects.length > 0 && (
+              <button className="btn btn-sm" onClick={() => openNewBlock()}>
+                + Block
+              </button>
+            )
+          }
+        >
+          <BlockList blocks={data.blocks} onStatus={setStatus} onEdit={openEditBlock} manualMode={manualMode} />
         </Card>
       </div>
+
+      <Modal open={Boolean(blockForm)} title={blockForm?.editing ? "Lernblock bearbeiten" : "Lernblock eintragen"} onClose={() => setBlockForm(null)}>
+        {blockForm && (
+          <>
+            {blockForm.editing && !blockForm.editing.manual && (
+              <p className="mb-3 rounded-lg border border-accent/30 bg-accent/[0.05] px-3 py-2 text-xs text-ink-2">
+                Dieser Block wurde automatisch geplant. Sobald du ihn speicherst, bleibt er genau so stehen.
+              </p>
+            )}
+            <BlockForm
+              key={blockForm.editing?.id ?? "neu"}
+              initial={blockForm.initial}
+              editing={blockForm.editing}
+              subjects={data.subjects}
+              onCancel={() => setBlockForm(null)}
+              onSaved={() => {
+                setBlockForm(null);
+                reload();
+                setDetailVersion((v) => v + 1);
+              }}
+            />
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modeAsk} title="Selbst planen" onClose={() => setModeAsk(false)}>
+        <p className="text-sm text-ink-2">
+          Ab jetzt legt Life OS keine Lernblöcke mehr automatisch an. Du trägst selbst ein, wann du welches Thema lernst – genau so erscheint es im Kalender.
+        </p>
+        <p className="mt-3 text-sm text-ink-2">Was soll mit den bisher geplanten Blöcken passieren?</p>
+        <div className="mt-4 flex flex-col gap-2">
+          <button className="btn btn-primary" onClick={() => changeMode("manuell", true)}>
+            Behalten – ich passe sie selbst an
+          </button>
+          <button className="btn" onClick={() => changeMode("manuell", false)}>
+            Löschen – ich fange leer an
+          </button>
+          <p className="text-xs text-ink-3">Erledigte Blöcke und dein Fortschritt bleiben in jedem Fall erhalten.</p>
+        </div>
+      </Modal>
 
       <Modal open={newOpen} title="Neues Fach" onClose={() => setNewOpen(false)}>
         <SubjectForm initial={{ name: "", short: "", color: "#38bdf8", exam_date: "", exam_time: "", exam_location: "", study_start: "", notes: "" }} onSave={createSubject} onCancel={() => setNewOpen(false)} />

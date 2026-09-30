@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from datetime import date as Date
 from pathlib import Path
 from typing import Any
@@ -44,9 +44,10 @@ def _replan_and_push(db: Session) -> dict[str, Any]:
 def overview(db: Session = Depends(get_db)) -> dict[str, Any]:
     now = datetime.now()
     # Verpasste Blöcke automatisch neu einplanen
-    if db.query(StudyBlock).filter(StudyBlock.status == "geplant", StudyBlock.end < now).first():
+    if study_service.has_missed_auto_blocks(db, now):
         _replan_and_push(db)
-    horizon = now + timedelta(days=21)
+    mode = study_service.plan_mode(db)
+    horizon = now + timedelta(days=21 if mode == "auto" else 366)
     upcoming = (
         db.query(StudyBlock)
         .filter(StudyBlock.end >= now - timedelta(days=7), StudyBlock.start <= horizon)
@@ -77,12 +78,29 @@ def overview(db: Session = Depends(get_db)) -> dict[str, Any]:
         "claude_available": claude_ai.available(),
         "google_connected": google_calendar.is_connected(),
         "settings": settings_store.get(db, "study"),
+        "plan_mode": mode,
     }
 
 
 @router.post("/replan")
 def replan(db: Session = Depends(get_db)) -> dict[str, Any]:
     return _replan_and_push(db)
+
+
+class ModeIn(BaseModel):
+    mode: str = Field(pattern=r"^(auto|manuell)$")
+    keep_plan: bool = True  # beim Wechsel auf „manuell“: bisherigen Plan als eigenen übernehmen
+
+
+@router.post("/mode")
+def set_mode(payload: ModeIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Automatisch planen lassen oder alle Lernblöcke selbst eintragen."""
+    converted = 0
+    if payload.mode == "manuell" and payload.keep_plan:
+        converted = study_service.convert_future_to_manual(db)
+    settings_store.set_value(db, "study_plan_mode", payload.mode)
+    result = _replan_and_push(db)
+    return {"mode": payload.mode, "kept": converted, "replan": result}
 
 
 # ---------------------------------------------------------------- Fächer
@@ -379,6 +397,137 @@ def blocks(start: str | None = None, end: str | None = None, db: Session = Depen
         .all()
     )
     return [serialize_block(b) for b in rows]
+
+
+TIME_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"
+
+
+class BlockIn(BaseModel):
+    subject_id: int
+    topic_id: int | None = None
+    date: Date
+    start_time: str = Field(pattern=TIME_PATTERN)
+    end_time: str = Field(pattern=TIME_PATTERN)
+    kind: str = Field(default="lernen", pattern=r"^(lernen|wiederholung|puffer)$")
+    title: str = Field(default="", max_length=250)
+    note: str = Field(default="", max_length=2000)
+    repeat_until: Date | None = None  # wöchentlich wiederholen bis einschließlich diesem Tag
+
+
+class BlockPatch(BaseModel):
+    subject_id: int | None = None
+    topic_id: int | None = None
+    date: Date | None = None
+    start_time: str | None = Field(default=None, pattern=TIME_PATTERN)
+    end_time: str | None = Field(default=None, pattern=TIME_PATTERN)
+    kind: str | None = Field(default=None, pattern=r"^(lernen|wiederholung|puffer)$")
+    title: str | None = Field(default=None, max_length=250)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+def _hhmm(value: str) -> time:
+    h, m = value.split(":")
+    return time(int(h), int(m))
+
+
+def _block_times(day: Date, start_time: str, end_time: str) -> tuple[datetime, datetime]:
+    start = datetime.combine(day, _hhmm(start_time))
+    end = datetime.combine(day, _hhmm(end_time))
+    if end <= start:
+        raise HTTPException(status_code=400, detail="Das Ende muss nach dem Beginn liegen.")
+    if end - start > timedelta(hours=12):
+        raise HTTPException(status_code=400, detail="Ein Lernblock darf höchstens 12 Stunden dauern.")
+    return start, end
+
+
+def _subject_and_topic(db: Session, subject_id: int, topic_id: int | None) -> tuple[Subject, Topic | None]:
+    subject = get_or_404(db, Subject, subject_id, "Fach")
+    topic = None
+    if topic_id is not None:
+        topic = get_or_404(db, Topic, topic_id, "Thema")
+        if topic.subject_id != subject.id:
+            raise HTTPException(status_code=400, detail="Das Thema gehört nicht zu diesem Fach.")
+    return subject, topic
+
+
+@router.post("/blocks")
+def create_block(payload: BlockIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Lernblock selbst eintragen – er erscheint genau so im Kalender und wird nie verschoben."""
+    subject, topic = _subject_and_topic(db, payload.subject_id, payload.topic_id)
+    days = [payload.date]
+    if payload.repeat_until:
+        if payload.repeat_until < payload.date:
+            raise HTTPException(status_code=400, detail="„Wiederholen bis“ muss nach dem ersten Termin liegen.")
+        while len(days) < 60 and days[-1] + timedelta(days=7) <= payload.repeat_until:
+            days.append(days[-1] + timedelta(days=7))
+    title = payload.title.strip() or study_service.default_block_title(subject, topic, payload.kind)
+    created, warnings = [], []
+    for day in days:
+        start, end = _block_times(day, payload.start_time, payload.end_time)
+        for c in study_service.conflicts(db, start, end):
+            warnings.append(f"{day.strftime('%d.%m.')}: überschneidet sich mit {c}")
+        block = StudyBlock(
+            subject_id=subject.id,
+            topic_id=topic.id if topic else None,
+            start=start,
+            end=end,
+            kind=payload.kind,
+            status="geplant",
+            title=title,
+            note=payload.note.strip(),
+            manual=True,
+        )
+        db.add(block)
+        db.flush()
+        created.append(block)
+    db.commit()
+    _replan_and_push(db)
+    return {"blocks": [serialize_block(b) for b in created], "warnings": warnings}
+
+
+@router.patch("/blocks/{block_id}")
+def update_block(block_id: int, payload: BlockPatch, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Lernblock ändern oder verschieben. Danach gilt er als selbst geplant und bleibt so stehen."""
+    b = get_or_404(db, StudyBlock, block_id, "Lernblock")
+    data = payload.model_dump(exclude_unset=True)
+    subject_id = data.get("subject_id") or b.subject_id
+    topic_id = data["topic_id"] if "topic_id" in data else b.topic_id
+    if "subject_id" in data and data["subject_id"] != b.subject_id and "topic_id" not in data:
+        topic_id = None
+    subject, topic = _subject_and_topic(db, subject_id, topic_id)
+    kind = data.get("kind") or b.kind
+    day = data.get("date") or b.start.date()
+    start, end = _block_times(day, data.get("start_time") or b.start.strftime("%H:%M"), data.get("end_time") or b.end.strftime("%H:%M"))
+    old_default = study_service.default_block_title(b.subject, b.topic, b.kind) if b.subject else ""
+    b.subject_id, b.topic_id, b.kind, b.start, b.end = subject.id, topic.id if topic else None, kind, start, end
+    if "title" in data:
+        b.title = (data["title"] or "").strip() or study_service.default_block_title(subject, topic, kind)
+    elif not b.manual or b.title == old_default:
+        b.title = study_service.default_block_title(subject, topic, kind)
+    if "note" in data:
+        b.note = (data["note"] or "").strip()
+    if b.status == "verpasst" and end > datetime.now():
+        b.status = "geplant"
+    b.manual = True
+    db.commit()
+    warnings = [f"Überschneidet sich mit {c}" for c in study_service.conflicts(db, start, end, exclude_block_id=b.id)]
+    _replan_and_push(db)
+    db.refresh(b)
+    return {"block": serialize_block(b), "warnings": warnings}
+
+
+@router.delete("/blocks/{block_id}")
+def delete_block(block_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    b = get_or_404(db, StudyBlock, block_id, "Lernblock")
+    google_calendar.delete_remote_event(db, b.google_event_id)
+    topic = b.topic
+    db.delete(b)
+    db.commit()
+    if topic:
+        study_service.update_topic_status(db, topic)
+        db.commit()
+    _replan_and_push(db)
+    return {"ok": True}
 
 
 @router.post("/blocks/{block_id}/status")

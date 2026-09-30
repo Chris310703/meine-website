@@ -216,6 +216,9 @@ class StudyBlock(DemoMixin, Base):
     review_number: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="geplant")  # geplant | erledigt | verpasst
     title: Mapped[str] = mapped_column(String(250), default="")
+    # Selbst geplant: bleibt genau so stehen und wird vom automatischen Planer nie verschoben
+    manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str] = mapped_column(Text, default="")
     google_event_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     google_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
