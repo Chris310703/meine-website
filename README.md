@@ -1,6 +1,6 @@
 # LIFE OS – dein persönliches Dashboard
 
-Life OS bündelt **Training, Schlaf, Erholung, Studium, Planung, Ernährung, Finanzen und mehr** in einer App, die lokal auf deinem MacBook läuft. Deine Daten bleiben auf deinem Rechner (SQLite-Datenbank im Projektordner).
+Life OS bündelt **Training, Trainingsplan, Schlaf, Erholung, Studium, Planung, Ernährung und mehr** in einer App, die lokal auf deinem MacBook läuft. Deine Daten bleiben auf deinem Rechner (SQLite-Datenbank im Projektordner).
 
 ![Heute-Ansicht](docs/screenshots/heute.png)
 
@@ -26,8 +26,9 @@ Life OS bündelt **Training, Schlaf, Erholung, Studium, Planung, Ernährung, Fin
 
 | Reiter | Inhalt |
 |---|---|
-| ☀️ **Heute** | Recovery-Ampel, Schlafscore, Body Battery, heutige Termine und Vorlesungen, anstehende Lernblöcke, offene To-dos, Habits, Kalorienbilanz |
+| ☀️ **Heute** | Recovery-Ampel mit der heutigen Einheit aus dem Trainingsplan, Schlafscore, Body Battery, heutige Termine und Vorlesungen, anstehende Lernblöcke, offene To-dos, Habits, Kalorienbilanz |
 | 🏃 **Fitness** | Aktivitätenliste mit HF-Zonen, Wochen-/Monatsumfang, Zeit in HF-Zonen, Zone-2-Pace bei gleicher Herzfrequenz, VO2max-Verlauf, Wochenziele, geplante Trainings |
+| 🏋️ **Trainingsplan** | Wochenplan für Kraft + Fußball (Ruhetage Mi und Fr) mit Übungen, Sätzen, Wiederholungen, Pausen und Technik-Tipps; **Training eintragen** mit Gewicht und Wiederholungen pro Satz, Pausen-Timer, Bewertung und Notizen; Gewichtsvorschlag fürs nächste Mal, Trainingstagebuch und Fortschritt je Übung; Plan frei bearbeitbar |
 | 🌙 **Schlaf** | Dauer und Phasen pro Nacht, letzte Nächte (Tief-/REM-Schlaf), Score-Verlauf, Einschlaf-/Aufwachzeiten mit Regelmäßigkeit, Schlafziel, Wochen-/Monatsschnitt |
 | 🔋 **Recovery** | HRV-Status und -Trend, Ruhepuls, Body Battery, Stress, akute vs. chronische Last, Erholungszeit und die **Tagesampel** (grün = hart trainieren, gelb = locker, rot = Ruhetag) mit Begründung |
 | 📅 **Kalender** | Wochen- und Monatsansicht mit Google-Terminen, Stundenplan, Lernblöcken, Trainings und Prüfungen – farblich unterschieden |
@@ -37,13 +38,9 @@ Life OS bündelt **Training, Schlaf, Erholung, Studium, Planung, Ernährung, Fin
 | 🎓 **Stundenplan** | Vorlesungen und Übungen mit Fach, Zeit, Raum und Dozent – wöchentlich oder 14-tägig im Semester, freie Zeitfenster sichtbar |
 | 📚 **Lernplan** | Pro Fach Unterlagen (PDF, Folien) hochladen und Prüfungstermin eintragen, Themen per Claude extrahieren (oder manuell), **automatische Lernblöcke** in freien Zeiten – oder **selbst planen** (Tag, Uhrzeit, Fach, Thema; erscheint genau so im Kalender), verteilte Wiederholung, Puffertage, verpasste Blöcke werden neu eingeplant, Fortschritt und Countdown |
 | 🗂️ **Karteikarten** | Fächer → Themen → Karten, Abfrage eines ganzen Fachs, einzelner oder mehrerer Themen oder aller Fächer gemischt, **Spaced Repetition** (Karten kommen automatisch in wachsenden Abständen wieder), **Import direkt aus Claude**, Wochenrückblick mit richtig/falsch pro Tag, Fach und Thema |
-| 💶 **Finanzen** | Einnahmen/Ausgaben mit Kategorien, Monatsbudget, Übersichtsdiagramme |
-| 📈 **Aktien** | Depot und Watchlist, aktuelle Kurse (yfinance), Gewinn/Verlust, Kursdiagramme |
-| 📰 **News** | Nachrichten aus deinen RSS-Feeds (Wirtschaft, Recht, Steuern, Sport …) |
 | 📓 **Journal** | Morgen- und Abendeintrag mit Leitfragen und Stimmung (1–5), durchsuchbar |
-| 🔭 **Rückblick** | Automatische Wochen- und Monatszusammenfassung aller Bereiche mit Vergleich |
-| 🤖 **KI** | Chat mit Claude, der auf deine Daten zugreift („Wie war meine Woche?“, „Soll ich heute hart trainieren?“) |
-| ⚙️ **Einstellungen** | Verbindungen (Garmin, Google, Claude), Ziele, Lernplan-Regeln, Habits, News-Feeds, Datenexport |
+| 🤖 **KI** | Chat mit Claude, der auf deine Daten zugreift („Wie lief mein Training diese Woche?“, „Soll ich heute hart trainieren?“) |
+| ⚙️ **Einstellungen** | Verbindungen (Garmin, Google, Claude), Ziele, Lernplan-Regeln, Habits, Datenexport |
 
 Beim ersten Start legt die App **Beispieldaten** an, damit du alles ohne Logins ansehen kannst. Sie lassen sich unter *Einstellungen → Daten* löschen; die Beispiel-Fitnessdaten verschwinden automatisch beim ersten echten Garmin-Sync.
 
@@ -232,13 +229,35 @@ Ein Klick auf einen Block öffnet ihn zum Ändern, Verschieben oder Löschen. Se
 
 Neben dem JSON aus dem Prompt funktionieren auch `F: … / A: …`-Blöcke, eine Karte pro Zeile (`Frage | Antwort`, Tab oder `;`), Markdown-Tabellen sowie Überschriften `# Fach: …` und `## Thema: …`. Mit Claude-API-Schlüssel gibt es zusätzlich **„Direkt mit Claude erzeugen“** ohne Kopieren.
 
-**Wochenrückblick:** Abfragen, richtig/falsch und Trefferquote pro Tag, pro Fach und pro Thema, Vergleich zur Vorwoche, die am häufigsten falsch beantworteten Karten – mit ‹ › auch für frühere Wochen. Die Zahlen erscheinen außerdem im allgemeinen *Rückblick*, und auf *Heute* siehst du, wie viele Karten fällig sind.
+**Wochenrückblick:** Abfragen, richtig/falsch und Trefferquote pro Tag, pro Fach und pro Thema, Vergleich zur Vorwoche, die am häufigsten falsch beantworteten Karten – mit ‹ › auch für frühere Wochen. Auf *Heute* siehst du, wie viele Karten fällig sind.
+
+---
+
+## Trainingsplan
+
+Der Plan ist auf **Hybrid-Training** ausgelegt: Kraft und Muskulatur im Heimstudio (Langhantel, Kurzhanteln, Klimmzugstange – keine Maschinen), Ausdauer und Spritzigkeit über Fußball und Handball.
+
+| Tag | Einheit |
+|---|---|
+| Mo | **Oberkörper A – Drücken** (Bankdrücken, Klimmzüge, Schulterdrücken, Rudern, Schrägbank, Seitheben, Trizeps). Bei Handball am Abend vorher trainieren oder kürzen |
+| Di | **Unterkörper – Kraft** (Kniebeuge, Rumänisches Kreuzheben, Bulgarische Split Squats, Hip Thrust, Waden, Knieheben) mit Abstand zum **Fußballtraining** |
+| Mi | **Ruhetag** |
+| Do | **Athletik & Verletzungsprävention** (Nordic Curls, Copenhagen Plank, einbeiniges Kreuzheben, Sprünge, Plank) + **Fußballtraining** |
+| Fr | **Ruhetag** |
+| Sa | **Oberkörper B – Ziehen & Rumpf** – die Beine bleiben frisch fürs Spiel |
+| So | **Fußballspiel** |
+
+- **Training eintragen:** Einheit wählen → **„▶ Training eintragen“**. Pro Satz Gewicht und Wiederholungen eintragen und mit ✓ abhaken – dann startet automatisch der Pausen-Timer. Zum Schluss bewerten (😫 bis 💪) und Notizen schreiben, z. B. wie es lief oder was gezwickt hat. Für alles außerhalb des Plans gibt es **„+ Freies Training“**.
+- **Progression:** Schaffst du in allen Sätzen die obere Wiederholungszahl, schlägt Life OS beim nächsten Mal mehr Gewicht vor (Langhantel +2,5 kg, Kurzhanteln +1–2 kg) und trägt es schon ein. **📖 So funktioniert der Plan** erklärt die Regeln (RPE, Aufwärmen, Deload, Recovery-Ampel).
+- **Trainingstagebuch & Fortschritt:** Alle Einträge mit Notizen; ein Klick öffnet sie zum Ändern. Das Diagramm zeigt pro Übung bestes Gewicht und geschätztes Maximum über die Zeit.
+- **Plan anpassen:** **„✎ Plan bearbeiten“** – Einheiten hinzufügen, verschieben oder löschen, Übungen ändern (Sätze, Wiederholungen, Pause, Steigerung, Technik-Tipp) und umsortieren. **„↺ Vorgeschlagenen Plan wiederherstellen“** holt den ursprünglichen Plan zurück; dein Trainingstagebuch bleibt dabei erhalten.
+- Auf **Heute** steht unter der Recovery-Ampel die heutige Einheit mit direktem Link zum Eintragen.
 
 ---
 
 ## Claude API einrichten
 
-Claude wird für die **Themen-Extraktion im Lernplan**, das **Erzeugen von Karteikarten**, den **KI-Chat** und die **KI-Zusammenfassung im Rückblick** genutzt. Alle anderen Funktionen laufen auch ohne Schlüssel.
+Claude wird für die **Themen-Extraktion im Lernplan**, das **Erzeugen von Karteikarten** und den **KI-Chat** genutzt. Alle anderen Funktionen laufen auch ohne Schlüssel.
 
 1. Auf <https://console.anthropic.com/> registrieren bzw. anmelden.
 2. Unter **„Billing“** Guthaben aufladen (5–10 € reichen für viele Anfragen).
@@ -261,10 +280,9 @@ Für Opus 5 ist der **serverseitige Fallback** aktiviert: Lehnt das Modell eine 
 1. **Stundenplan:** Semesterzeitraum festlegen (🗓️ Semester) und Vorlesungen/Übungen eintragen. Doppelklick ins Raster legt einen Termin an.
 2. **Lernplan:** Für jedes Fach **„+ Fach“** mit Prüfungstermin anlegen, Unterlagen hochladen und **„Themen mit Claude extrahieren“** – oder Themen manuell eintragen (`Titel | Stunden | Schwierigkeit`). Die Lernblöcke werden automatisch in freie Zeiten gelegt – oder du planst selbst (siehe unten).
 3. **Lernplan-Regeln** anpassen (nur für die automatische Planung): *Einstellungen → Lernplan* (Lernfenster, max. Stunden pro Tag, Blocklänge, Puffertage, Wiederholungsabstände, Lerntage).
-4. **Ziele** setzen: *Einstellungen → Ziele* (Schlaf, Kalorien, Training, Budget, HF-Zonen wie in Garmin Connect).
-5. **Trainings planen:** *Fitness → Geplante Trainings* – sie blockieren Lernzeit und erscheinen im Google-Kalender.
-6. **Aktien:** Symbole wie bei Yahoo Finance verwenden, z. B. `SAP.DE` (Xetra), `EUNL.DE` (ETF), `AAPL` (USA). Kurse sind ca. 15 Minuten verzögert.
-7. **News:** Eigene RSS-Feeds unter *Einstellungen → News-Feeds* hinzufügen.
+4. **Ziele** setzen: *Einstellungen → Ziele* (Schlaf, Kalorien, Training, HF-Zonen wie in Garmin Connect).
+5. **Trainingsplan:** Unter *Trainingsplan* steht dein Wochenplan. Nach dem Training **„▶ Training eintragen“** – Gewichte und Wiederholungen je Satz, Bewertung und Notizen (siehe unten).
+6. **Trainings mit Uhrzeit:** *Fitness → Geplante Trainings* – sie blockieren Lernzeit und erscheinen im Google-Kalender.
 
 ---
 
@@ -273,7 +291,7 @@ Für Opus 5 ist der **serverseitige Fallback** aktiviert: Lehnt das Modell eine 
 - Alle Daten liegen lokal in **`backend/data/`**: Datenbank (`lifeos.db`), hochgeladene Unterlagen, Garmin- und Google-Token.
 - Dieser Ordner und die `.env` stehen in `.gitignore` und werden nie hochgeladen.
 - **Backup:** den Ordner `backend/data/` kopieren. Export als JSON oder CSV: *Einstellungen → Daten*.
-- Nach außen geht nur, was für die Anbindungen nötig ist: Garmin (Abruf deiner Daten), Google Kalender, Yahoo Finance (Kurse), RSS-Feeds und – nur wenn du KI-Funktionen nutzt – die für die Antwort nötigen Daten an die Claude API.
+- Nach außen geht nur, was für die Anbindungen nötig ist: Garmin (Abruf deiner Daten), Google Kalender, Kalender-Links (z. B. FamilyWall) und – nur wenn du KI-Funktionen nutzt – die für die Antwort nötigen Daten an die Claude API.
 
 ---
 
@@ -289,8 +307,6 @@ Für Opus 5 ist der **serverseitige Fallback** aktiviert: Lehnt das Modell eine 
 | Google: `redirect_uri_mismatch` | Weiterleitungs-URI exakt so eintragen: `http://localhost:8000/api/google/callback` |
 | Google: `access_denied` / „Zugriff blockiert“ | Deine Gmail-Adresse als **Testnutzer** eintragen (Schritt 4). |
 | Claude: „Schlüssel ungültig“ / „Guthaben aufgebraucht“ | Schlüssel in der `.env` prüfen bzw. Guthaben aufladen, App neu starten. |
-| Aktienkurse fehlen | Symbol prüfen (z. B. `SAP.DE`). Ohne Internet werden die zuletzt gespeicherten Kurse angezeigt. |
-| Ein News-Feed zeigt „Fehler“ | Adresse unter *Einstellungen → News-Feeds* prüfen oder ersetzen. |
 | Alles zurücksetzen | App beenden und `backend/data/lifeos.db` löschen (**löscht alle Daten!**). Beim nächsten Start werden wieder Beispieldaten angelegt. |
 
 ---

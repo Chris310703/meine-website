@@ -8,11 +8,7 @@ import pytest
 @pytest.fixture()
 def demo_client(client, db, monkeypatch):
     from app import seed
-    from app.services import news, stocks
 
-    # Keine Netzwerkzugriffe im Test
-    monkeypatch.setattr(stocks, "refresh_async", lambda: False)
-    monkeypatch.setattr(news, "refresh_async", lambda: False)
     seed.seed_demo_data(db)
     return client
 
@@ -26,6 +22,9 @@ GET_ENDPOINTS = [
     "/api/fitness/summary",
     "/api/fitness/activities?days=30",
     "/api/fitness/planned",
+    "/api/training/plan",
+    "/api/training/logs",
+    "/api/training/exercises",
     "/api/sleep?days=30",
     "/api/recovery?days=30",
     "/api/calendar",
@@ -39,16 +38,9 @@ GET_ENDPOINTS = [
     "/api/focus",
     "/api/todos?status=alle",
     "/api/journal",
-    "/api/finance",
-    "/api/stocks",
-    "/api/stocks/history/SAP.DE?period=3m",
-    "/api/news",
-    "/api/news/feeds",
     "/api/cards",
     "/api/cards/week?offset=1",
     "/api/cards/list",
-    "/api/review?period=woche",
-    "/api/review?period=monat&offset=1",
     "/api/ai/status",
     "/api/ai/history",
 ]

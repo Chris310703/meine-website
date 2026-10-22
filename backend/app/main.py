@@ -26,9 +26,12 @@ def startup_tasks() -> None:
             log.info("Lege Beispieldaten an …")
             seed.seed_demo_data(db)
 
-        # Verpasste Lernblöcke automatisch neu einplanen
-        from .services import study_service
+        from .services import study_service, training
 
+        # Trainingsplan beim ersten Start anlegen
+        training.ensure_plan(db)
+
+        # Verpasste Lernblöcke automatisch neu einplanen
         now = datetime.now()
         if study_service.has_missed_auto_blocks(db, now):
             log.info("Verpasste Lernblöcke gefunden – plane neu …")

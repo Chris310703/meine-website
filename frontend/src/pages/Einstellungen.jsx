@@ -9,7 +9,6 @@ const TABS = [
   { value: "ziele", label: "Ziele" },
   { value: "lernplan", label: "Lernplan" },
   { value: "habits", label: "Habits & Journal" },
-  { value: "news", label: "News-Feeds" },
   { value: "daten", label: "Daten" },
 ];
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -243,7 +242,7 @@ function ClaudeCard() {
   return (
     <Card title="🤖 Claude API" actions={<StatusDot ok={st.configured} label={st.configured ? "Schlüssel vorhanden" : "kein Schlüssel"} />}>
       <div className="space-y-3 text-sm text-ink-2">
-        <p>Für Themen-Extraktion im Lernplan, den KI-Chat und die KI-Zusammenfassung im Rückblick. Alles andere läuft auch ohne.</p>
+        <p>Für Themen-Extraktion im Lernplan, Karteikarten-Import und den KI-Chat. Alles andere läuft auch ohne.</p>
         <div>
           Modell: <code className="text-accent">{st.model}</code> <span className="text-ink-3">(änderbar in der .env über CLAUDE_MODEL)</span>
         </div>
@@ -409,12 +408,6 @@ function GoalsForm({ settings, onSave }) {
           </Field>
         </div>
       </Card>
-      <Card title="💶 Budget">
-        <div className="grid grid-cols-2 gap-3">
-          <NumberField label="Monatsbudget" value={s.monthly_budget} onChange={set("monthly_budget")} suffix="€" />
-          <div className="self-end text-xs text-ink-3">Budgets je Kategorie stellst du im Reiter Finanzen → „Budget“ ein.</div>
-        </div>
-      </Card>
       <div className="xl:col-span-2">
         <button className="btn btn-primary" onClick={() => onSave(s)}>
           Ziele speichern
@@ -551,84 +544,6 @@ function HabitsJournal({ settings, onSave }) {
   );
 }
 
-// ---------------------------------------------------------------- News-Feeds
-
-function FeedsCard() {
-  const { data, reload } = useApi("/news/feeds");
-  const [f, setF] = useState({ name: "", url: "", category: "Wirtschaft" });
-  const toast = useToast();
-  return (
-    <Card title="📰 News-Feeds (RSS)">
-      <form
-        className="mb-4 grid grid-cols-12 items-end gap-2"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          try {
-            await api.post("/news/feeds", f);
-            setF({ name: "", url: "", category: f.category });
-            toast("Feed hinzugefügt.", "success");
-            reload();
-          } catch (err) {
-            toast(err.message, "error");
-          }
-        }}
-      >
-        <Field label="Name" className="col-span-3">
-          <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required placeholder="z. B. Handelsblatt" />
-        </Field>
-        <Field label="RSS-Adresse" className="col-span-5">
-          <input className="input" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} required placeholder="https://…" />
-        </Field>
-        <Field label="Kategorie" className="col-span-3">
-          <input className="input" list="feed-cats" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} required />
-          <datalist id="feed-cats">
-            {["Wirtschaft", "Recht", "Steuern", "Sport", "Politik", "Technik"].map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </Field>
-        <button className="btn btn-primary col-span-1">+</button>
-      </form>
-      <table className="table text-sm">
-        <thead>
-          <tr>
-            <th>Aktiv</th>
-            <th>Name</th>
-            <th>Kategorie</th>
-            <th>Adresse</th>
-            <th>Status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {(data || []).map((feed) => (
-            <tr key={feed.id}>
-              <td>
-                <input type="checkbox" checked={feed.active} onChange={() => api.patch(`/news/feeds/${feed.id}`, { active: !feed.active }).then(reload)} aria-label="aktiv" />
-              </td>
-              <td>{feed.name}</td>
-              <td>
-                <input className="input w-32 py-1" defaultValue={feed.category} onBlur={(e) => e.target.value !== feed.category && api.patch(`/news/feeds/${feed.id}`, { category: e.target.value }).then(reload)} aria-label="Kategorie" />
-              </td>
-              <td className="max-w-xs truncate text-xs text-ink-3" title={feed.url}>
-                {feed.url}
-              </td>
-              <td className="text-xs">
-                {feed.last_error ? <span className="text-amber-300" title={feed.last_error}>⚠ Fehler</span> : feed.last_fetched ? <span className="text-emerald-400">✓ {dateTimeText(feed.last_fetched)}</span> : <span className="text-ink-3">noch nicht abgerufen</span>}
-              </td>
-              <td className="text-right">
-                <ConfirmButton onConfirm={() => api.del(`/news/feeds/${feed.id}`).then(reload)} question="?">
-                  ✕
-                </ConfirmButton>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
 // ---------------------------------------------------------------- Daten
 
 function DataCard({ demoActive, onChanged }) {
@@ -636,7 +551,7 @@ function DataCard({ demoActive, onChanged }) {
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <Card title="💾 Daten exportieren">
-        <p className="mb-3 text-sm text-ink-2">Alle deine Daten (Training, Schlaf, Lernplan, Finanzen, Journal …) als Datei herunterladen.</p>
+        <p className="mb-3 text-sm text-ink-2">Alle deine Daten (Training, Trainingsplan, Schlaf, Lernplan, Karteikarten, Journal …) als Datei herunterladen.</p>
         <div className="flex gap-2">
           <a className="btn btn-primary" href="/api/export?format=json">
             JSON herunterladen
@@ -717,7 +632,7 @@ export default function Einstellungen() {
 
   return (
     <div>
-      <PageHeader title="Einstellungen" icon="⚙️" subtitle="Verbindungen, Ziele, Lernplan-Regeln, Habits, News-Feeds und Datenexport" />
+      <PageHeader title="Einstellungen" icon="⚙️" subtitle="Verbindungen, Ziele, Lernplan-Regeln, Habits und Datenexport" />
       <div className="mb-5">
         <Segmented value={tab} onChange={setTab} options={TABS} />
       </div>
@@ -749,14 +664,12 @@ export default function Einstellungen() {
               max_hr: Number(s.max_hr),
               z2_reference_hr: Number(s.z2_reference_hr),
               hr_zone_limits: s.hr_zone_limits.map(Number),
-              monthly_budget: Number(s.monthly_budget),
             })
           }
         />
       )}
       {tab === "lernplan" && <StudyForm key={JSON.stringify(data.study)} study={data.study} onSave={(study) => save({ study }, "Regeln gespeichert – Lernplan wurde neu berechnet.")} />}
       {tab === "habits" && <HabitsJournal settings={data} onSave={(v) => save(v)} />}
-      {tab === "news" && <FeedsCard />}
       {tab === "daten" && (
         <DataCard
           demoActive={data.demo_active}

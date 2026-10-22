@@ -174,6 +174,7 @@ def today_overview(db: Session = Depends(get_db)) -> dict[str, Any]:
         }
         if next_exam
         else None,
+        "training": _training_today(db, today),
         "cards_due": db.query(models.Flashcard).filter(models.Flashcard.due <= datetime.now()).count(),
         "cards_new": db.query(models.Flashcard).filter(models.Flashcard.due.is_(None)).count(),
         "garmin": garmin_manager.status(),
@@ -181,9 +182,33 @@ def today_overview(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+def _training_today(db: Session, today: date) -> dict[str, Any]:
+    """Heutige Einheiten aus dem Trainingsplan und ob schon etwas eingetragen ist."""
+    sessions = (
+        db.query(models.TrainingSession)
+        .filter(models.TrainingSession.weekday == today.weekday())
+        .order_by(models.TrainingSession.order_index, models.TrainingSession.id)
+        .all()
+    )
+    logged = {log.session_id for log in db.query(models.WorkoutLog).filter(models.WorkoutLog.date == today).all()}
+    return {
+        "sessions": [
+            {
+                "id": s.id,
+                "kind": s.kind,
+                "title": s.title,
+                "duration_min": s.duration_min,
+                "exercises": len(s.exercises),
+                "logged": s.id in logged,
+            }
+            for s in sessions
+        ]
+    }
+
+
 # ---------------------------------------------------------------- Einstellungen
 
-HIDDEN_SETTINGS = {"demo_seeded", "ics_calendars"}
+HIDDEN_SETTINGS = {"demo_seeded", "ics_calendars", "training_plan_seeded"}
 
 
 @router.get("/settings")
@@ -272,7 +297,8 @@ EXPORT_MODELS = [
     models.Activity, models.DailyMetrics, models.SleepRecord, models.PlannedWorkout,
     models.Subject, models.Topic, models.StudyBlock, models.TimetableEntry, models.CalendarEvent,
     models.FocusSession, models.Meal, models.Habit, models.HabitLog, models.Todo, models.JournalEntry,
-    models.Transaction, models.StockPosition, models.NewsFeed, models.ChatMessage, models.Setting,
+    models.TrainingSession, models.PlanExercise, models.WorkoutLog, models.WorkoutSet,
+    models.ChatMessage, models.Setting,
     models.CardSubject, models.CardTopic, models.Flashcard, models.CardReview,
 ]
 

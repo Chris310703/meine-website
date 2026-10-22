@@ -7,7 +7,6 @@ Datum erzeugt, sind also immer „aktuell“.
 
 from __future__ import annotations
 
-import math
 import random
 from datetime import date, datetime, time, timedelta
 
@@ -24,19 +23,14 @@ from .models import (
     HabitLog,
     JournalEntry,
     Meal,
-    NewsFeed,
-    NewsItem,
     PlannedWorkout,
-    PriceCache,
     SleepRecord,
-    StockPosition,
     StudyBlock,
     StudyDocument,
     Subject,
     TimetableEntry,
     Todo,
     Topic,
-    Transaction,
 )
 
 DEMO_MODELS = [
@@ -55,28 +49,8 @@ DEMO_MODELS = [
     HabitLog,
     Habit,
     JournalEntry,
-    Transaction,
-    StockPosition,
-    NewsItem,
-    NewsFeed,
     CalendarEvent,
 ]
-
-DEFAULT_FEEDS = [
-    ("Tagesschau Wirtschaft", "https://www.tagesschau.de/wirtschaft/index~rss2.xml", "Wirtschaft"),
-    ("Spiegel Wirtschaft", "https://www.spiegel.de/wirtschaft/index.rss", "Wirtschaft"),
-    ("FAZ Wirtschaft", "https://www.faz.net/rss/aktuell/wirtschaft/", "Wirtschaft"),
-    ("LTO – Legal Tribune Online", "https://www.lto.de/rss/feed/", "Recht"),
-    ("Tagesschau Inland", "https://www.tagesschau.de/inland/index~rss2.xml", "Recht"),
-    (
-        "Bundesfinanzministerium",
-        "https://www.bundesfinanzministerium.de/SiteGlobals/Functions/RSSFeed/DE/Aktuelles/RSSAktuelles.xml",
-        "Steuern",
-    ),
-    ("Sportschau", "https://www.sportschau.de/index~rss2.xml", "Sport"),
-    ("kicker", "https://newsfeed.kicker.de/news/aktuell", "Sport"),
-]
-
 
 def is_seeded(db: Session) -> bool:
     return bool(settings_store.get(db, "demo_seeded", False))
@@ -85,7 +59,6 @@ def is_seeded(db: Session) -> bool:
 def remove_demo_data(db: Session) -> None:
     for model in DEMO_MODELS:
         db.execute(delete(model).where(model.is_demo.is_(True)))
-    db.execute(delete(PriceCache).where(PriceCache.source == "demo"))
     settings_store.set_value(db, "demo_active", False, commit=False)
     db.commit()
 
@@ -104,9 +77,6 @@ def seed_demo_data(db: Session, today: date | None = None) -> None:
     subjects = _seed_study(db, today, rng)
     _seed_calendar(db, today)
     _seed_daily_life(db, today, rng, subjects)
-    _seed_finance(db, today, rng)
-    _seed_stocks(db, today, rng)
-    _seed_news(db, today)
 
     settings_store.set_value(db, "demo_seeded", True, commit=False)
     settings_store.set_value(db, "demo_active", True, commit=False)
@@ -725,142 +695,4 @@ def _seed_daily_life(db: Session, today: date, rng: random.Random, subjects: dic
             is_demo=True,
         )
     )
-    db.flush()
-
-
-# ---------------------------------------------------------------- Finanzen
-
-
-def _seed_finance(db: Session, today: date, rng: random.Random) -> None:
-    first = date(today.year, today.month, 1)
-    months = []
-    m = first
-    for _ in range(12):
-        months.append(m)
-        m = (m - timedelta(days=1)).replace(day=1)
-    for month_start in months:
-        def d(day: int) -> date:
-            return month_start + timedelta(days=day - 1)
-
-        is_current = month_start == first
-        limit_day = today.day if is_current else 28
-
-        def add(day: int, amount: float, kind: str, cat: str, desc: str) -> None:
-            if day <= limit_day:
-                db.add(Transaction(date=d(day), amount=round(amount, 2), kind=kind, category=cat, description=desc, is_demo=True))
-
-        add(1, 603.00, "einnahme", "Werkstudentenjob", "Gehalt Kanzlei")
-        add(1, 400.00, "einnahme", "Eltern", "Unterstützung")
-        add(2, 415.00, "ausgabe", "Miete & Wohnen", "Miete WG-Zimmer")
-        add(3, 29.00, "ausgabe", "Mobilität", "Deutschlandticket (Semesterticket-Aufpreis)")
-        add(4, 34.90, "ausgabe", "Sport", "Fitnessstudio")
-        add(5, 12.99, "ausgabe", "Abos", "Spotify Premium")
-        add(5, 9.99, "ausgabe", "Abos", "Cloud-Speicher")
-        for day in (3, 7, 10, 14, 17, 21, 24, 27):
-            add(day, rng.uniform(22, 58), "ausgabe", "Lebensmittel", rng.choice(["REWE", "Aldi", "Lidl", "Edeka"]))
-        for day in (6, 13, 20, 26):
-            add(day, rng.uniform(8, 38), "ausgabe", "Freizeit", rng.choice(["Kino", "Bar mit Freunden", "Pizza", "Konzertkarte"]))
-        add(11, rng.uniform(15, 45), "ausgabe", "Uni & Bücher", rng.choice(["Skript & Kopien", "Lehrbuch", "Schönfelder-Ergänzung"]))
-        add(15, rng.uniform(5, 30), "ausgabe", "Sonstiges", rng.choice(["Drogerie", "Friseur", "Geschenk"]))
-        add(18, rng.uniform(12, 26), "ausgabe", "Mobilität", "Carsharing")
-        if month_start.month in (3, 9) or rng.random() < 0.2:
-            add(16, 120.0, "einnahme", "Sonstiges", "Nachhilfe")
-    db.flush()
-
-
-def _seed_stocks(db: Session, today: date, rng: random.Random) -> None:
-    positions = [
-        ("EUNL.DE", "iShares Core MSCI World", "depot", 14.5, 88.40, "EUR", 101.2),
-        ("SAP.DE", "SAP SE", "depot", 4, 172.30, "EUR", 238.5),
-        ("ALV.DE", "Allianz SE", "depot", 2, 245.10, "EUR", 331.0),
-        ("AAPL", "Apple Inc.", "depot", 3, 185.20, "USD", 232.4),
-        ("NVDA", "NVIDIA Corp.", "watchlist", 0, None, "USD", 176.8),
-        ("SIE.DE", "Siemens AG", "watchlist", 0, None, "EUR", 221.3),
-        ("ADS.DE", "adidas AG", "watchlist", 0, None, "EUR", 197.6),
-    ]
-    for sym, name, kind, qty, buy, cur, price in positions:
-        db.add(
-            StockPosition(
-                symbol=sym,
-                name=name,
-                kind=kind,
-                quantity=qty,
-                buy_price=buy,
-                buy_date=today - timedelta(days=rng.randint(120, 600)) if buy else None,
-                currency=cur,
-                is_demo=True,
-            )
-        )
-        # Synthetischer Kursverlauf (1 Jahr), damit Diagramme offline funktionieren
-        history = []
-        value = price * rng.uniform(0.72, 0.9)
-        drift = math.log(price / value) / 365
-        for i in range(365, -1, -1):
-            day = today - timedelta(days=i)
-            if day.weekday() >= 5:
-                continue
-            value *= math.exp(drift + rng.gauss(0, 0.012))
-            history.append([day.isoformat(), round(value, 2)])
-        scale = price / history[-1][1]  # Verlauf so skalieren, dass er beim aktuellen Kurs endet
-        history = [[d, round(v * scale, 2)] for d, v in history]
-        prev = history[-2][1]
-        existing = db.get(PriceCache, sym)
-        if existing is None:
-            db.add(
-                PriceCache(
-                    symbol=sym,
-                    price=price,
-                    prev_close=prev,
-                    currency=cur,
-                    name=name,
-                    history=history,
-                    source="demo",
-                    updated_at=datetime(2000, 1, 1),
-                )
-            )
-    if db.get(PriceCache, "EURUSD=X") is None:
-        db.add(PriceCache(symbol="EURUSD=X", price=1.12, prev_close=1.12, currency="USD", name="EUR/USD", history=[], source="demo", updated_at=datetime(2000, 1, 1)))
-    db.flush()
-
-
-# ---------------------------------------------------------------- News
-
-DEMO_NEWS = [
-    ("Wirtschaft", "EZB lässt Leitzins unverändert – Inflation nähert sich Zielwert", "Die Europäische Zentralbank hält den Einlagenzins stabil. Ökonomen erwarten frühestens im Frühjahr eine weitere Senkung."),
-    ("Wirtschaft", "DAX schließt nahe Rekordhoch", "Starke Quartalszahlen aus der Industrie und sinkende Anleiherenditen stützen den deutschen Leitindex."),
-    ("Wirtschaft", "Ifo-Geschäftsklima hellt sich überraschend auf", "Die Stimmung in den Chefetagen verbessert sich den dritten Monat in Folge."),
-    ("Recht", "BGH stärkt Verbraucherrechte bei Online-Kündigungen", "Der Kündigungsbutton muss auch bei Verträgen mit Probeabo leicht auffindbar sein, entschied der VIII. Zivilsenat."),
-    ("Recht", "BVerfG: Anforderungen an Wahlrechtsreform konkretisiert", "Karlsruhe betont die Bedeutung der Wahlrechtsgleichheit – relevant für jede Staatsorga-Klausur."),
-    ("Recht", "Neues Gesetz zur Digitalisierung der Justiz beschlossen", "Ab 2027 sollen Zivilverfahren weitgehend elektronisch geführt werden."),
-    ("Steuern", "Grundfreibetrag steigt – was Studierende mit Nebenjob wissen müssen", "Werkstudenten profitieren: Bis zur neuen Grenze fällt keine Einkommensteuer an."),
-    ("Steuern", "BMF-Schreiben zu Werbungskosten bei Erststudium", "Die Finanzverwaltung präzisiert, wann Studienkosten als Sonderausgaben gelten."),
-    ("Sport", "Bundesliga: Spitzenspiel endet 2:2", "Ein spätes Tor in der Nachspielzeit sichert dem Tabellenführer einen Punkt."),
-    ("Sport", "Berlin-Marathon: Streckenrekord knapp verpasst", "Bei idealen Bedingungen blieb die Siegerzeit nur Sekunden über der Bestmarke."),
-]
-
-
-def _seed_news(db: Session, today: date) -> None:
-    existing = {f.url for f in db.query(NewsFeed).all()}
-    for name, url, cat in DEFAULT_FEEDS:
-        if url not in existing:
-            db.add(NewsFeed(name=name, url=url, category=cat, is_demo=False))
-    db.flush()
-    feeds: dict[str, NewsFeed] = {}
-    for feed in db.query(NewsFeed).order_by(NewsFeed.id).all():
-        feeds.setdefault(feed.category, feed)
-    for idx, (cat, title, summary) in enumerate(DEMO_NEWS):
-        feed = feeds.get(cat)
-        if feed is None:
-            continue
-        db.add(
-            NewsItem(
-                feed_id=feed.id,
-                title=title,
-                link=f"https://example.org/lifeos-demo/{idx}",
-                summary=summary,
-                published=datetime.combine(today, time(8, 0)) - timedelta(hours=idx * 5),
-                category=cat,
-                is_demo=True,
-            )
-        )
     db.flush()
