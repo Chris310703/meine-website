@@ -161,9 +161,6 @@ def test_review_schedules_and_week_stats(client):
     assert week["hardest"][0]["front"] == "V1"
     assert client.get("/api/cards").json()["today"]["wrong"] == 1
 
-    review = client.get("/api/review?period=woche").json()
-    assert review["current"]["cards"]["reviews"] == 4
-    assert any(h["icon"] == "🗂️" for h in review["highlights"])
 
 
 def test_import_preview_creates_subjects_and_skips_duplicates(client):

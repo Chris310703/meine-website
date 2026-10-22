@@ -6,11 +6,11 @@ import { api, useApi } from "../lib/api";
 import { dateTimeText } from "../lib/format";
 
 const QUICK = [
-  "Wie war meine Woche?",
+  "Wie lief mein Training diese Woche?",
   "Soll ich heute hart trainieren?",
   "Wie komme ich im Lernplan voran – schaffe ich BGB AT?",
   "Wie war mein Schlaf in den letzten zwei Wochen?",
-  "Wie sieht mein Budget diesen Monat aus?",
+  "Wo kann ich beim Krafttraining das Gewicht steigern?",
   "Plane mir einen sinnvollen Tag für morgen.",
 ];
 
@@ -21,10 +21,9 @@ const TOOL_LABEL = {
   schlaf_daten: "Schlaf",
   lernplan: "Lernplan",
   kalender: "Kalender",
-  finanzen: "Finanzen",
   ernaehrung: "Ernährung",
   habits_und_todos: "Habits & To-dos",
-  rueckblick: "Rückblick",
+  trainingsplan: "Trainingsplan",
 };
 
 export default function KI() {
@@ -70,7 +69,7 @@ export default function KI() {
       <PageHeader
         title="KI"
         icon="🤖"
-        subtitle={status.configured ? `Chat mit Claude (${status.model}) – mit Zugriff auf deine Training-, Schlaf-, Recovery-, Lern- und Finanzdaten` : "Chat mit Claude"}
+        subtitle={status.configured ? `Chat mit Claude (${status.model}) – mit Zugriff auf deine Training-, Trainingsplan-, Schlaf-, Recovery- und Lerndaten` : "Chat mit Claude"}
         actions={
           history.length > 0 && (
             <ConfirmButton className="btn" onConfirm={clear} question="Verlauf wirklich löschen?">
@@ -105,7 +104,7 @@ export default function KI() {
             {history.length === 0 && !pending && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
                 <div className="font-display glow-text text-lg text-accent">Frag mich etwas</div>
-                <p className="max-w-lg text-sm text-ink-3">Ich schaue mir deine Daten an und gebe dir konkrete Empfehlungen – zum Training, Schlaf, Lernen oder Budget.</p>
+                <p className="max-w-lg text-sm text-ink-3">Ich schaue mir deine Daten an und gebe dir konkrete Empfehlungen – zum Training, Schlaf oder Lernen.</p>
                 <div className="flex max-w-2xl flex-wrap justify-center gap-2">
                   {QUICK.map((q) => (
                     <button key={q} className="chip px-3 py-1.5 text-xs hover:border-accent/60 hover:text-accent" onClick={() => send(q)}>

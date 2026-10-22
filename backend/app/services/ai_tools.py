@@ -56,11 +56,11 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "finanzen",
-        "description": "Finanzen eines Monats: Einnahmen, Ausgaben, Saldo, Kategorien gegen Budget, letzte Buchungen, 12-Monats-Übersicht.",
+        "name": "trainingsplan",
+        "description": "Trainingsplan (Wochenplan mit Einheiten und Übungen inkl. Sätze/Wiederholungen) und die letzten eingetragenen Trainings mit Gewichten, Wiederholungen, Bewertung und Notizen.",
         "input_schema": {
             "type": "object",
-            "properties": {"monat": {"type": "string", "description": "Monat im Format JJJJ-MM (Standard: aktueller Monat)"}},
+            "properties": {"anzahl": {"type": "integer", "description": "Anzahl letzter Trainings (1–30)", "default": 10}},
         },
     },
     {
@@ -72,17 +72,6 @@ TOOLS: list[dict[str, Any]] = [
         "name": "habits_und_todos",
         "description": "Habits mit Streaks und Erfüllungsquote sowie offene To-dos mit Fälligkeit und Priorität.",
         "input_schema": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "rueckblick",
-        "description": "Automatische Zusammenfassung einer Woche oder eines Monats über alle Bereiche, inkl. Vergleich zum Vorzeitraum.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "zeitraum": {"type": "string", "enum": ["woche", "monat"], "default": "woche"},
-                "zurueck": {"type": "integer", "description": "0 = aktuelle, 1 = vorherige Woche/Monat …", "default": 0},
-            },
-        },
     },
 ]
 
@@ -107,8 +96,8 @@ def _slim_today(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def execute(db: Session, name: str, args: dict[str, Any]) -> Any:
-    from ..routers import core, finance, fitness, habits, nutrition, recovery, sleep, study, todos
-    from . import agenda, review
+    from ..routers import core, fitness, habits, nutrition, recovery, sleep, study, todos, training
+    from . import agenda
 
     if name == "heute_ueberblick":
         return _slim_today(core.today_overview(db=db))
@@ -160,11 +149,24 @@ def execute(db: Session, name: str, args: dict[str, Any]) -> Any:
         items = agenda.serialize(agenda.agenda(db, start, end))
         return [{k: it.get(k) for k in ("type_label", "title", "start", "end", "all_day", "subtitle", "location", "status")} for it in items]
 
-    if name == "finanzen":
-        data = finance.finance(month=args.get("monat") or None, db=db)
-        data["transactions"] = data["transactions"][:40]
-        data.pop("cumulative", None)
-        return data
+    if name == "trainingsplan":
+        p = training.plan(db=db)
+        week = [
+            {
+                "tag": d["label"],
+                "einheiten": [
+                    {
+                        "titel": s["title"],
+                        "art": s["kind_label"],
+                        "hinweis": s["notes"],
+                        "uebungen": [f"{e['name']}: {e['sets']} × {e['reps']}" for e in s["exercises"]],
+                    }
+                    for s in d["sessions"]
+                ],
+            }
+            for d in p["days"]
+        ]
+        return {"wochenplan": week, "regeln": p["guide"], "letzte_trainings": training.logs(limit=_clamp(args.get("anzahl"), 1, 30, 10), db=db)}
 
     if name == "ernaehrung":
         data = nutrition.nutrition(day=None, db=db)
@@ -180,14 +182,10 @@ def execute(db: Session, name: str, args: dict[str, Any]) -> Any:
             "zaehler": t["counts"],
         }
 
-    if name == "rueckblick":
-        period = args.get("zeitraum") if args.get("zeitraum") in ("woche", "monat") else "woche"
-        return review.build_review(db, period, _clamp(args.get("zurueck"), 0, 24, 0))
-
     return {"fehler": f"Unbekanntes Werkzeug: {name}"}
 
 
-SYSTEM_PROMPT = """Du bist der persönliche Assistent in „Life OS“, der privaten Dashboard-App von Chris. Chris studiert Recht und Wirtschaft, trainiert mit einer Garmin Forerunner 265 (Laufen, Rad, Kraft) und nutzt die App für Training, Schlaf, Erholung, Lernplan, Kalender, Ernährung, Habits und Finanzen.
+SYSTEM_PROMPT = """Du bist der persönliche Assistent in „Life OS“, der privaten Dashboard-App von Chris. Chris studiert Recht und Wirtschaft, trainiert mit einer Garmin Forerunner 265 (Laufen, Rad, Kraft) und nutzt die App für Training, Trainingsplan, Schlaf, Erholung, Lernplan, Karteikarten, Kalender, Ernährung und Habits.
 
 So arbeitest du:
 - Hole dir mit den Werkzeugen die passenden Daten, bevor du Aussagen über Chris' Werte machst. Erfinde keine Zahlen; fehlen Daten, sag das.

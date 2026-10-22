@@ -6,6 +6,7 @@ import { Loading, ToastProvider } from "./components/ui";
 
 const Heute = lazy(() => import("./pages/Heute"));
 const Fitness = lazy(() => import("./pages/Fitness"));
+const Trainingsplan = lazy(() => import("./pages/Trainingsplan"));
 const Schlaf = lazy(() => import("./pages/Schlaf"));
 const Recovery = lazy(() => import("./pages/Recovery"));
 const Kalender = lazy(() => import("./pages/Kalender"));
@@ -15,17 +16,14 @@ const Todos = lazy(() => import("./pages/Todos"));
 const Stundenplan = lazy(() => import("./pages/Stundenplan"));
 const Lernplan = lazy(() => import("./pages/Lernplan"));
 const Karteikarten = lazy(() => import("./pages/Karteikarten"));
-const Finanzen = lazy(() => import("./pages/Finanzen"));
-const Aktien = lazy(() => import("./pages/Aktien"));
-const News = lazy(() => import("./pages/News"));
 const Journal = lazy(() => import("./pages/Journal"));
-const Rueckblick = lazy(() => import("./pages/Rueckblick"));
 const KI = lazy(() => import("./pages/KI"));
 const Einstellungen = lazy(() => import("./pages/Einstellungen"));
 
 export const NAV = [
   { path: "/heute", label: "Heute", icon: "☀️", element: Heute },
   { path: "/fitness", label: "Fitness", icon: "🏃", element: Fitness },
+  { path: "/trainingsplan", label: "Trainingsplan", icon: "🏋️", element: Trainingsplan },
   { path: "/schlaf", label: "Schlaf", icon: "🌙", element: Schlaf },
   { path: "/recovery", label: "Recovery", icon: "🔋", element: Recovery },
   { path: "/kalender", label: "Kalender", icon: "📅", element: Kalender },
@@ -35,11 +33,7 @@ export const NAV = [
   { path: "/stundenplan", label: "Stundenplan", icon: "🎓", element: Stundenplan },
   { path: "/lernplan", label: "Lernplan", icon: "📚", element: Lernplan },
   { path: "/karteikarten", label: "Karteikarten", icon: "🗂️", element: Karteikarten },
-  { path: "/finanzen", label: "Finanzen", icon: "💶", element: Finanzen },
-  { path: "/aktien", label: "Aktien", icon: "📈", element: Aktien },
-  { path: "/news", label: "News", icon: "📰", element: News },
   { path: "/journal", label: "Journal", icon: "📓", element: Journal },
-  { path: "/rueckblick", label: "Rückblick", icon: "🔭", element: Rueckblick },
   { path: "/ki", label: "KI", icon: "🤖", element: KI },
   { path: "/einstellungen", label: "Einstellungen", icon: "⚙️", element: Einstellungen },
 ];

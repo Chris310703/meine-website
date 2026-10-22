@@ -1,8 +1,7 @@
-"""KI-Reiter (Chat mit Claude und Zugriff auf die App-Daten) und Rückblick."""
+"""KI-Reiter: Chat mit Claude und Zugriff auf die App-Daten."""
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,10 +11,10 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..database import SessionLocal, get_db
 from ..models import ChatMessage
-from ..services import ai_tools, claude_ai, review
+from ..services import ai_tools, claude_ai
 from ..utils import to_dict
 
-router = APIRouter(prefix="/api", tags=["KI & Rückblick"])
+router = APIRouter(prefix="/api", tags=["KI"])
 
 HISTORY_LIMIT = 20
 
@@ -87,37 +86,3 @@ def chat(payload: ChatIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     db.add_all([user_msg, bot_msg])
     db.commit()
     return {"reply": to_dict(bot_msg), "user": to_dict(user_msg), "tools": result["tools"]}
-
-
-# ---------------------------------------------------------------- Rückblick
-
-
-class SummaryIn(BaseModel):
-    period: str = Field(default="woche", pattern=r"^(woche|monat)$")
-    offset: int = Field(default=0, ge=0, le=36)
-
-
-@router.get("/review")
-def get_review(period: str = "woche", offset: int = 0, db: Session = Depends(get_db)) -> dict[str, Any]:
-    if period not in ("woche", "monat"):
-        raise HTTPException(status_code=400, detail="Zeitraum muss „woche“ oder „monat“ sein.")
-    data = review.build_review(db, period, max(0, offset))
-    data["claude_available"] = claude_ai.available()
-    return data
-
-
-@router.post("/review/ai-summary")
-def review_summary(payload: SummaryIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    data = review.build_review(db, payload.period, payload.offset)
-    prompt = (
-        f"Hier sind Chris' Daten für {data['label']} (aktueller Zeitraum) und den Vorzeitraum als JSON:\n\n"
-        f"<daten>\n{json.dumps({'aktuell': data['current'], 'vorher': data['previous']}, ensure_ascii=False, default=str)}\n</daten>\n\n"
-        "Schreibe einen motivierenden, ehrlichen Rückblick auf Deutsch (max. 180 Wörter): "
-        "1) Was lief gut, 2) was lief weniger gut, 3) drei konkrete Vorsätze für den nächsten Zeitraum. "
-        "Nutze Markdown mit kurzen Überschriften."
-    )
-    try:
-        text = claude_ai.simple_completion(ai_tools.SYSTEM_PROMPT, prompt, max_tokens=4000)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=claude_ai.friendly_error(exc)) from exc
-    return {"text": text}

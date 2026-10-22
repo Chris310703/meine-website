@@ -151,6 +151,83 @@ class PlannedWorkout(DemoMixin, Base):
     google_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
+# ---------------------------------------------------------------- Trainingsplan
+
+
+class TrainingSession(Base):
+    """Eine Einheit im Wochenplan (z. B. „Oberkörper A“ am Montag)."""
+
+    __tablename__ = "training_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    weekday: Mapped[int] = mapped_column(Integer, index=True)  # 0 = Montag
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    kind: Mapped[str] = mapped_column(String(20), default="kraft")  # kraft | praevention | fussball | handball | lauf | ruhe | sonstiges
+    title: Mapped[str] = mapped_column(String(150))
+    notes: Mapped[str] = mapped_column(Text, default="")
+    duration_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    exercises: Mapped[list[PlanExercise]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="PlanExercise.order_index"
+    )
+
+
+class PlanExercise(Base):
+    __tablename__ = "plan_exercises"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("training_sessions.id", ondelete="CASCADE"), index=True)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(150))
+    sets: Mapped[int] = mapped_column(Integer, default=3)
+    reps: Mapped[str] = mapped_column(String(30), default="8–12")  # z. B. „6–8“, „5“, „30 s“
+    rest_seconds: Mapped[int] = mapped_column(Integer, default=90)
+    increment_kg: Mapped[float] = mapped_column(Float, default=2.5)  # 0 = Körpergewicht
+    notes: Mapped[str] = mapped_column(Text, default="")  # Technik-Tipp
+    alternative: Mapped[str] = mapped_column(String(250), default="")
+
+    session: Mapped[TrainingSession] = relationship(back_populates="exercises")
+
+
+class WorkoutLog(Base):
+    """Ein absolviertes Training mit Notizen."""
+
+    __tablename__ = "workout_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("training_sessions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    date: Mapped[date] = mapped_column(Date, index=True)
+    title: Mapped[str] = mapped_column(String(150))
+    kind: Mapped[str] = mapped_column(String(20), default="kraft")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–5: wie lief es?
+    duration_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    sets: Mapped[list[WorkoutSet]] = relationship(
+        back_populates="log", cascade="all, delete-orphan", order_by="WorkoutSet.id"
+    )
+
+
+class WorkoutSet(Base):
+    __tablename__ = "workout_sets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    log_id: Mapped[int] = mapped_column(ForeignKey("workout_logs.id", ondelete="CASCADE"), index=True)
+    exercise_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plan_exercises.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    exercise_name: Mapped[str] = mapped_column(String(150), index=True)
+    set_number: Mapped[int] = mapped_column(Integer, default=1)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    log: Mapped[WorkoutLog] = relationship(back_populates="sets")
+
+
 # ---------------------------------------------------------------- Studium
 
 
@@ -364,78 +441,6 @@ class JournalEntry(DemoMixin, Base):
     text: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
-
-
-# ---------------------------------------------------------------- Finanzen
-
-
-class Transaction(DemoMixin, Base):
-    __tablename__ = "transactions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, index=True)
-    amount: Mapped[float] = mapped_column(Float)  # immer positiv
-    kind: Mapped[str] = mapped_column(String(10))  # einnahme | ausgabe
-    category: Mapped[str] = mapped_column(String(60), default="Sonstiges")
-    description: Mapped[str] = mapped_column(String(250), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
-
-
-class StockPosition(DemoMixin, Base):
-    __tablename__ = "stock_positions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    symbol: Mapped[str] = mapped_column(String(30), index=True)
-    name: Mapped[str] = mapped_column(String(150), default="")
-    kind: Mapped[str] = mapped_column(String(12), default="depot")  # depot | watchlist
-    quantity: Mapped[float] = mapped_column(Float, default=0)
-    buy_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    buy_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    currency: Mapped[str] = mapped_column(String(5), default="EUR")
-    notes: Mapped[str] = mapped_column(Text, default="")
-
-
-class PriceCache(Base):
-    __tablename__ = "price_cache"
-
-    symbol: Mapped[str] = mapped_column(String(30), primary_key=True)
-    price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    prev_close: Mapped[float | None] = mapped_column(Float, nullable=True)
-    currency: Mapped[str | None] = mapped_column(String(5), nullable=True)
-    name: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    history: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [[datum, schluss], ...]
-    source: Mapped[str] = mapped_column(String(20), default="yfinance")
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
-
-
-# ---------------------------------------------------------------- News
-
-
-class NewsFeed(DemoMixin, Base):
-    __tablename__ = "news_feeds"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(120))
-    url: Mapped[str] = mapped_column(String(500))
-    category: Mapped[str] = mapped_column(String(60), default="Allgemein")
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_fetched: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_error: Mapped[str] = mapped_column(Text, default="")
-
-
-class NewsItem(DemoMixin, Base):
-    __tablename__ = "news_items"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    feed_id: Mapped[int] = mapped_column(ForeignKey("news_feeds.id", ondelete="CASCADE"), index=True)
-    title: Mapped[str] = mapped_column(String(500))
-    link: Mapped[str] = mapped_column(String(1000), unique=True)
-    summary: Mapped[str] = mapped_column(Text, default="")
-    published: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
-    category: Mapped[str] = mapped_column(String(60), default="Allgemein")
-    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
-
-    feed: Mapped[NewsFeed] = relationship()
 
 
 # ---------------------------------------------------------------- KI

@@ -101,6 +101,31 @@ export default function Heute() {
               </ul>
             </div>
           </div>
+          {d.training?.sessions?.length > 0 && (
+            <div className="mt-4 border-t border-line/60 pt-3">
+              <div className="mb-1.5 text-[0.68rem] font-semibold uppercase tracking-wider text-ink-3">Heute laut Trainingsplan</div>
+              <div className="flex flex-wrap gap-2">
+                {d.training.sessions.map((t) =>
+                  t.kind === "ruhe" ? (
+                    <span key={t.id} className="chip">
+                      😴 Ruhetag – Erholung
+                    </span>
+                  ) : (
+                    <Link
+                      key={t.id}
+                      to={t.logged || !["kraft", "praevention"].includes(t.kind) ? `/trainingsplan?einheit=${t.id}` : `/trainingsplan?eintragen=${t.id}`}
+                      className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-1.5 text-sm transition hover:border-accent/60 hover:bg-accent/10"
+                    >
+                      <span>{{ kraft: "🏋️", praevention: "🧘", fussball: "⚽", handball: "🤾", lauf: "🏃" }[t.kind] || "✨"}</span>
+                      <b>{t.title}</b>
+                      {t.exercises > 0 && <span className="text-xs text-ink-3">{t.exercises} Übungen</span>}
+                      {t.logged ? <span className="text-xs text-emerald-400">✓ eingetragen</span> : ["kraft", "praevention"].includes(t.kind) && <span className="text-xs font-semibold text-accent">Eintragen ›</span>}
+                    </Link>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Schlaf */}
