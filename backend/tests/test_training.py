@@ -2,8 +2,12 @@
 
 from datetime import date, timedelta
 
-from app.models import PlanExercise, TrainingSession
+from app import settings_store
+from app.models import PlanExercise, TrainingSession, WorkoutLog, WorkoutSet
 from app.services import training
+
+A = "Ganzkörper A – Kraft & Core"
+B = "Ganzkörper B – Athletik, Power & Core"
 
 
 def _plan(client):
@@ -16,15 +20,30 @@ def _session(plan, title):
     return next(s for d in plan["days"] for s in d["sessions"] if s["title"] == title)
 
 
+def _exercise(session, name):
+    return next(e for e in session["exercises"] if e["name"] == name)
+
+
 def test_default_plan_matches_week(client):
     p = _plan(client)
     kinds = {d["label"]: [s["kind"] for s in d["sessions"]] for d in p["days"]}
-    assert kinds["Mittwoch"] == ["ruhe"] and kinds["Freitag"] == ["ruhe"]  # zwei Ruhetage
-    assert "fussball" in kinds["Dienstag"] and "fussball" in kinds["Donnerstag"] and kinds["Sonntag"] == ["fussball"]
-    assert kinds["Montag"] == ["kraft"] and kinds["Samstag"] == ["kraft"]
-    upper_a = _session(p, "Oberkörper A – Drücken")
-    assert upper_a["exercises"][0]["name"] == "Bankdrücken (Langhantel)"
-    assert upper_a["exercises"][0]["sets"] == 4 and upper_a["exercises"][0]["reps"] == "6–8"
+    assert kinds["Mittwoch"] == ["ruhe"] and kinds["Samstag"] == ["ruhe"]  # zwei Ruhetage
+    assert kinds["Dienstag"][0] == "fussball" and kinds["Donnerstag"] == ["fussball"] and kinds["Sonntag"] == ["fussball"]
+    # An Fußballtagen kein Krafttraining (vorher geht nicht), nur der optionale Core-Finisher danach
+    assert "kraft" not in kinds["Dienstag"] + kinds["Donnerstag"] + kinds["Sonntag"]
+    assert kinds["Montag"] == ["kraft"] and kinds["Freitag"] == ["kraft"]
+    a = _session(p, A)
+    assert a["exercises"][0]["name"] == "Kniebeuge (Langhantel)" and a["exercises"][0]["reps"] == "4–6"
+    # Athletik und Core in beiden Krafteinheiten
+    b = _session(p, B)
+    assert b["exercises"][0]["name"] == "Standweitsprung (Broad Jump)"
+    for sess in (a, b):
+        assert "Core:" in " ".join(e["notes"] for e in sess["exercises"])
+    assert any(e["name"] == "Nordic Hamstring Curls" for e in a["exercises"])
+    assert any(e["name"] == "Copenhagen Plank" for e in b["exercises"])
+    finisher = _session(p, "Core-Finisher (optional, 10 min)")
+    assert finisher["weekday"] == 1 and finisher["kind"] == "praevention"
+    assert p["week"]["planned_strength"] == 2
     # Keine Übung braucht Maschinen oder Kabelzug
     names = " ".join(e["name"].lower() for d in p["days"] for s in d["sessions"] for e in s["exercises"])
     assert "kabel" not in names and "maschine" not in names and "latzug" not in names
@@ -44,7 +63,7 @@ def test_plan_is_seeded_only_once(client, db):
 
 def test_edit_session_and_exercises(client):
     p = _plan(client)
-    s = _session(p, "Oberkörper B – Ziehen & Rumpf")
+    s = _session(p, B)
     r = client.post(f"/api/training/sessions/{s['id']}/exercises", json={"name": "Facepulls mit Band", "sets": 3, "reps": "15", "increment_kg": 0}).json()
     assert r["rep_target"] == 15
     ex_id = r["id"]
@@ -61,7 +80,7 @@ def test_edit_session_and_exercises(client):
 
 
 def _log_bench(client, session, day, weight, reps_list, notes=""):
-    ex = session["exercises"][0]
+    ex = _exercise(session, "Bankdrücken (Langhantel)")
     sets = [
         {"exercise_id": ex["id"], "exercise_name": ex["name"], "set_number": i + 1, "weight_kg": weight, "reps": r, "done": True}
         for i, r in enumerate(reps_list)
@@ -76,31 +95,31 @@ def _log_bench(client, session, day, weight, reps_list, notes=""):
 
 def test_log_training_with_weights_notes_and_progression(client):
     p = _plan(client)
-    s = _session(p, "Oberkörper A – Drücken")
+    s = _session(p, A)
     today = date.today()
-    log = _log_bench(client, s, today - timedelta(days=7), 60, [8, 8, 7, 6], notes="Schulter etwas steif")
-    assert log["title"] == "Oberkörper A – Drücken"
+    log = _log_bench(client, s, today - timedelta(days=7), 60, [6, 6, 5, 4], notes="Schulter etwas steif")
+    assert log["title"] == A
     assert log["notes"] == "Schulter etwas steif" and log["rating"] == 4
     assert log["exercises"][0]["name"] == "Bankdrücken (Langhantel)" and len(log["exercises"][0]["sets"]) == 4
-    assert log["volume_kg"] == 60 * (8 + 8 + 7 + 6)
+    assert log["volume_kg"] == 60 * (6 + 6 + 5 + 4)
 
     detail = client.get(f"/api/training/sessions/{s['id']}").json()
-    bench = detail["exercises"][0]
+    bench = _exercise(detail, "Bankdrücken (Langhantel)")
     assert bench["last"]["sets"][0]["weight_kg"] == 60
     assert bench["suggestion"]["increase"] is False and bench["suggestion"]["weight_kg"] == 60
 
-    _log_bench(client, s, today, 60, [8, 8, 8, 8])
-    bench = client.get(f"/api/training/sessions/{s['id']}").json()["exercises"][0]
+    _log_bench(client, s, today, 60, [6, 6, 6, 6])
+    bench = _exercise(client.get(f"/api/training/sessions/{s['id']}").json(), "Bankdrücken (Langhantel)")
     assert bench["suggestion"]["increase"] is True and bench["suggestion"]["weight_kg"] == 62.5
 
     prog = client.get("/api/training/progress", params={"exercise": "Bankdrücken (Langhantel)"}).json()
     assert [pt["best_weight"] for pt in prog["points"]] == [60, 60]
-    assert prog["best_e1rm"] == training.estimated_1rm(60, 8)
+    assert prog["best_e1rm"] == training.estimated_1rm(60, 6)
     names = [e["name"] for e in client.get("/api/training/exercises").json()]
     assert names == ["Bankdrücken (Langhantel)"]
 
     plan_now = _plan(client)
-    assert _session(plan_now, "Oberkörper A – Drücken")["last_log"]["date"] == today.isoformat()
+    assert _session(plan_now, A)["last_log"]["date"] == today.isoformat()
     today_data = client.get("/api/today").json()["training"]
     if today.weekday() == 0:
         assert today_data["sessions"][0]["logged"] is True
@@ -108,8 +127,8 @@ def test_log_training_with_weights_notes_and_progression(client):
 
 def test_update_and_delete_log_skips_empty_sets(client):
     p = _plan(client)
-    s = _session(p, "Unterkörper – Kraft")
-    ex = s["exercises"][0]
+    s = _session(p, B)
+    ex = _exercise(s, "Bulgarische Split Squats (Kurzhanteln)")
     body = {
         "session_id": s["id"],
         "date": date.today().isoformat(),
@@ -157,3 +176,44 @@ def test_validation(client):
     assert client.post("/api/training/sessions", json={"weekday": 1, "kind": "yoga", "title": "x"}).status_code == 422
     assert client.post("/api/training/logs", json={"date": "2026-10-01", "rating": 9}).status_code == 422
     assert client.get("/api/training/progress", params={"exercise": "Gibt es nicht"}).status_code == 404
+
+
+def _seed_legacy_plan(db, title="Oberkörper A – Drücken"):
+    """Simuliert eine Datenbank mit dem alten Standardplan (Version 1)."""
+    db.add(TrainingSession(weekday=0, order_index=0, kind="kraft", title=title, notes="alt"))
+    settings_store.set_value(db, "training_plan_seeded", True)
+    db.commit()
+
+
+def test_unchanged_old_default_plan_is_replaced(db, monkeypatch):
+    _seed_legacy_plan(db)
+    old = db.query(TrainingSession).one()
+    log = WorkoutLog(session_id=old.id, date=date.today(), title=old.title, kind="kraft")
+    log.sets.append(WorkoutSet(exercise_name="Bankdrücken (Langhantel)", set_number=1, weight_kg=60, reps=8))
+    db.add(log)
+    db.commit()
+    monkeypatch.setattr(training, "LEGACY_PLAN_SIGNATURES", {training.db_plan_signature(db)})
+
+    training.ensure_plan(db)
+    titles = {s.title for s in db.query(TrainingSession).all()}
+    assert A in titles and B in titles and "Oberkörper A – Drücken" not in titles
+    assert settings_store.get(db, "training_plan_version") == training.PLAN_VERSION
+    kept = db.query(WorkoutLog).one()  # Trainingstagebuch bleibt erhalten
+    assert kept.session_id is None and kept.sets[0].exercise_name == "Bankdrücken (Langhantel)"
+    # Läuft nur einmal: danach bleibt der Plan, wie er ist
+    training.ensure_plan(db)
+    assert db.query(TrainingSession).count() == len(training.DEFAULT_PLAN)
+
+
+def test_customized_old_plan_is_kept(db, monkeypatch):
+    _seed_legacy_plan(db, title="Mein eigener Plan")
+    monkeypatch.setattr(training, "LEGACY_PLAN_SIGNATURES", {"etwas-anderes"})
+    training.ensure_plan(db)
+    assert [s.title for s in db.query(TrainingSession).all()] == ["Mein eigener Plan"]
+    assert settings_store.get(db, "training_plan_version") == training.PLAN_VERSION
+
+
+def test_signature_of_seeded_plan_matches_default(db):
+    training.create_default_plan(db)
+    assert training.db_plan_signature(db) == training.default_plan_signature(training.DEFAULT_PLAN)
+    assert training.db_plan_signature(db) not in training.LEGACY_PLAN_SIGNATURES

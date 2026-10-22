@@ -28,7 +28,7 @@ Life OS bündelt **Training, Trainingsplan, Schlaf, Erholung, Studium, Planung, 
 |---|---|
 | ☀️ **Heute** | Recovery-Ampel mit der heutigen Einheit aus dem Trainingsplan, Schlafscore, Body Battery, heutige Termine und Vorlesungen, anstehende Lernblöcke, offene To-dos, Habits, Kalorienbilanz |
 | 🏃 **Fitness** | Aktivitätenliste mit HF-Zonen, Wochen-/Monatsumfang, Zeit in HF-Zonen, Zone-2-Pace bei gleicher Herzfrequenz, VO2max-Verlauf, Wochenziele, geplante Trainings |
-| 🏋️ **Trainingsplan** | Wochenplan für Kraft + Fußball (Ruhetage Mi und Fr) mit Übungen, Sätzen, Wiederholungen, Pausen und Technik-Tipps; **Training eintragen** mit Gewicht und Wiederholungen pro Satz, Pausen-Timer, Bewertung und Notizen; Gewichtsvorschlag fürs nächste Mal, Trainingstagebuch und Fortschritt je Übung; Plan frei bearbeitbar |
+| 🏋️ **Trainingsplan** | Athletischer Wochenplan: zwei Ganzkörper-Einheiten + Fußball (Ruhetage Mi und Sa) mit Übungen, Sätzen, Wiederholungen, Pausen und Technik-Tipps; **Training eintragen** mit Gewicht und Wiederholungen pro Satz, Pausen-Timer, Bewertung und Notizen; Gewichtsvorschlag fürs nächste Mal, Trainingstagebuch und Fortschritt je Übung; Plan frei bearbeitbar |
 | 🌙 **Schlaf** | Dauer und Phasen pro Nacht, letzte Nächte (Tief-/REM-Schlaf), Score-Verlauf, Einschlaf-/Aufwachzeiten mit Regelmäßigkeit, Schlafziel, Wochen-/Monatsschnitt |
 | 🔋 **Recovery** | HRV-Status und -Trend, Ruhepuls, Body Battery, Stress, akute vs. chronische Last, Erholungszeit und die **Tagesampel** (grün = hart trainieren, gelb = locker, rot = Ruhetag) mit Begründung |
 | 📅 **Kalender** | Wochen- und Monatsansicht mit Google-Terminen, Stundenplan, Lernblöcken, Trainings und Prüfungen – farblich unterschieden |
@@ -235,22 +235,24 @@ Neben dem JSON aus dem Prompt funktionieren auch `F: … / A: …`-Blöcke, eine
 
 ## Trainingsplan
 
-Der Plan ist auf **Hybrid-Training** ausgelegt: Kraft und Muskulatur im Heimstudio (Langhantel, Kurzhanteln, Klimmzugstange – keine Maschinen), Ausdauer und Spritzigkeit über Fußball und Handball.
+Der Plan ist auf **Athletik** ausgelegt: stark, schnell und mit einem stabilen Rumpf – funktionell statt Bodybuilding. Trainiert wird im Heimstudio (Langhantel, Kurzhanteln, Klimmzugstange – keine Maschinen), Ausdauer und Spritzigkeit kommen über Fußball und Handball. An Fußballtagen gibt es vorher kein Krafttraining.
 
 | Tag | Einheit |
 |---|---|
-| Mo | **Oberkörper A – Drücken** (Bankdrücken, Klimmzüge, Schulterdrücken, Rudern, Schrägbank, Seitheben, Trizeps). Bei Handball am Abend vorher trainieren oder kürzen |
-| Di | **Unterkörper – Kraft** (Kniebeuge, Rumänisches Kreuzheben, Bulgarische Split Squats, Hip Thrust, Waden, Knieheben) mit Abstand zum **Fußballtraining** |
+| Mo | **Ganzkörper A – Kraft & Core** (Kniebeuge, Klimmzüge, Bankdrücken, Rumänisches Kreuzheben, Rudern, Nordic Curls, Rollout, Suitcase Carry) – Hauptkrafttag, Tag nach dem Spiel |
+| Di | **Fußballtraining**, danach optional **Core-Finisher** (10 min: Copenhagen Plank, Dead Bug, Seitstütz, Hollow Hold) |
 | Mi | **Ruhetag** |
-| Do | **Athletik & Verletzungsprävention** (Nordic Curls, Copenhagen Plank, einbeiniges Kreuzheben, Sprünge, Plank) + **Fußballtraining** |
-| Fr | **Ruhetag** |
-| Sa | **Oberkörper B – Ziehen & Rumpf** – die Beine bleiben frisch fürs Spiel |
+| Do | **Fußballtraining** |
+| Fr | **Ganzkörper B – Athletik, Power & Core** (Standweitsprung, Kurzhantel-Snatch, Bulgarische Split Squats, Schulterdrücken, Klimmzüge, einbeiniges Kreuzheben, Beinheben, Copenhagen Plank) – wenig Volumen, viel Tempo |
+| Sa | **Ruhetag** vor dem Spiel |
 | So | **Fußballspiel** |
+
+Hauptübungen mit 4–6 Wiederholungen und explosiver Ausführung machen stärker und schneller, ohne viel Masse aufzubauen; Ergänzungsübungen mit 8–12 Wiederholungen sorgen für eine athletische Figur. Montags Handball? Dann ersetzt Handball Einheit A, und am Freitag kommen Kniebeuge und Bankdrücken dazu.
 
 - **Training eintragen:** Einheit wählen → **„▶ Training eintragen“**. Pro Satz Gewicht und Wiederholungen eintragen und mit ✓ abhaken – dann startet automatisch der Pausen-Timer. Zum Schluss bewerten (😫 bis 💪) und Notizen schreiben, z. B. wie es lief oder was gezwickt hat. Für alles außerhalb des Plans gibt es **„+ Freies Training“**.
 - **Progression:** Schaffst du in allen Sätzen die obere Wiederholungszahl, schlägt Life OS beim nächsten Mal mehr Gewicht vor (Langhantel +2,5 kg, Kurzhanteln +1–2 kg) und trägt es schon ein. **📖 So funktioniert der Plan** erklärt die Regeln (RPE, Aufwärmen, Deload, Recovery-Ampel).
 - **Trainingstagebuch & Fortschritt:** Alle Einträge mit Notizen; ein Klick öffnet sie zum Ändern. Das Diagramm zeigt pro Übung bestes Gewicht und geschätztes Maximum über die Zeit.
-- **Plan anpassen:** **„✎ Plan bearbeiten“** – Einheiten hinzufügen, verschieben oder löschen, Übungen ändern (Sätze, Wiederholungen, Pause, Steigerung, Technik-Tipp) und umsortieren. **„↺ Vorgeschlagenen Plan wiederherstellen“** holt den ursprünglichen Plan zurück; dein Trainingstagebuch bleibt dabei erhalten.
+- **Plan anpassen:** **„✎ Plan bearbeiten“** – Einheiten hinzufügen, verschieben oder löschen, Übungen ändern (Sätze, Wiederholungen, Pause, Steigerung, Technik-Tipp) und umsortieren. **„↺ Vorgeschlagenen Plan wiederherstellen“** holt den aktuellen Standardplan zurück; dein Trainingstagebuch bleibt dabei erhalten. Ein unveränderter älterer Standardplan wird nach einem Update automatisch durch den neuen ersetzt.
 - Auf **Heute** steht unter der Recovery-Ampel die heutige Einheit mit direktem Link zum Eintragen.
 
 ---

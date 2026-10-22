@@ -208,7 +208,7 @@ def _training_today(db: Session, today: date) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- Einstellungen
 
-HIDDEN_SETTINGS = {"demo_seeded", "ics_calendars", "training_plan_seeded"}
+HIDDEN_SETTINGS = {"demo_seeded", "ics_calendars", "training_plan_seeded", "training_plan_version"}
 
 
 @router.get("/settings")

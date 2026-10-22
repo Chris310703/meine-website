@@ -155,7 +155,7 @@ class PlannedWorkout(DemoMixin, Base):
 
 
 class TrainingSession(Base):
-    """Eine Einheit im Wochenplan (z. B. „Oberkörper A“ am Montag)."""
+    """Eine Einheit im Wochenplan (z. B. „Ganzkörper A“ am Montag)."""
 
     __tablename__ = "training_sessions"
 

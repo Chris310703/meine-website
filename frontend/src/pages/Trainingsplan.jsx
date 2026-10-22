@@ -71,10 +71,10 @@ function WeekStrip({ days, todayWd, selectedId, onSelect, editMode, onAddSession
                   <button
                     key={s.id}
                     onClick={() => onSelect(s.id)}
-                    className={`w-full rounded-lg border px-2 py-1.5 text-left text-xs transition ${active ? "border-accent/70 bg-accent/10" : "border-line/60 hover:border-accent/40"}`}
+                    className={`w-full rounded-lg border px-1.5 py-1.5 text-left text-xs transition ${active ? "border-accent/70 bg-accent/10" : "border-line/60 hover:border-accent/40"}`}
                     style={{ borderLeft: `3px solid ${k.color}` }}
                   >
-                    <div className="flex items-start gap-1.5">
+                    <div className="flex items-start gap-1">
                       <span aria-hidden>{k.icon}</span>
                       <span className="min-w-0 flex-1 hyphens-auto break-words font-medium leading-snug" lang="de">{s.title}</span>
                       {s.done_this_week && (
@@ -115,7 +115,7 @@ function SessionForm({ initial, onSave, onCancel }) {
       }}
     >
       <Field label="Titel" className="col-span-2">
-        <input className="input" value={f.title} onChange={set("title")} required maxLength={150} placeholder="z. B. Oberkörper A" />
+        <input className="input" value={f.title} onChange={set("title")} required maxLength={150} placeholder="z. B. Ganzkörper A" />
       </Field>
       <Field label="Tag">
         <select className="input" value={f.weekday} onChange={set("weekday")}>
@@ -913,7 +913,7 @@ export default function Trainingsplan() {
       <div className="grid grid-cols-12 gap-5">
         <Card className="col-span-12">
           <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Stat label="Krafteinheiten diese Woche" value={`${data.week.done_strength} / ${data.week.planned_strength}`} sub="inkl. Athletik & Prävention" />
+            <Stat label="Krafteinheiten diese Woche" value={`${data.week.done_strength} / ${data.week.planned_strength}`} sub="Core-Finisher zählt extra" />
             <Stat label="Einträge diese Woche" value={data.week.logs} />
             <Stat label="Ruhetage" value={data.days.filter((d) => d.sessions.length && d.sessions.every((s) => s.kind === "ruhe")).map((d) => d.label.slice(0, 2)).join(" + ") || "–"} />
             <div>
