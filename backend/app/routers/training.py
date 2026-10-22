@@ -115,7 +115,7 @@ def plan(db: Session = Depends(get_db)) -> dict[str, Any]:
         light = recovery.traffic_light_for(db, today)
     except Exception:  # pragma: no cover – Ampel ist nur ein Zusatz
         light = None
-    strength = [s for s in sessions if s.kind in ("kraft", "praevention")]
+    strength = [s for s in sessions if s.kind == "kraft"]
     return {
         "today_weekday": today.weekday(),
         "days": days,
@@ -124,7 +124,7 @@ def plan(db: Session = Depends(get_db)) -> dict[str, Any]:
         "traffic_light": light,
         "week": {
             "planned_strength": len(strength),
-            "done_strength": sum(1 for log in week_logs if log.kind in ("kraft", "praevention")),
+            "done_strength": sum(1 for log in week_logs if log.kind == "kraft"),
             "logs": len(week_logs),
         },
     }
